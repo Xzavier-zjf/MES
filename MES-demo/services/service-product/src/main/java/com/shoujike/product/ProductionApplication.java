@@ -7,7 +7,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 
 @SpringBootApplication
 @MapperScan("com.shoujike.product.mapper")
-@EnableFeignClients
+@EnableFeignClients(basePackages = "com.shoujike.common.client")
 public class ProductionApplication {
     public static void main(String[] args) {
         SpringApplication.run(ProductionApplication.class, args);

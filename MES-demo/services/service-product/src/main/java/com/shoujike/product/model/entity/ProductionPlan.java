@@ -1,4 +1,4 @@
-package com.shoujike.product.entity;
+package com.shoujike.product.model.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
@@ -9,8 +9,7 @@ import java.time.LocalDateTime;
 @TableName("production_plan")
 public class ProductionPlan {
     @TableId(type = IdType.AUTO)
-    private Long id;
-
+    private Integer id;
     private String planCode;
     private String productName;
     private Integer totalQuantity;

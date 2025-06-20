@@ -11,7 +11,7 @@
  Target Server Version : 80036
  File Encoding         : 65001
 
- Date: 19/06/2025 21:55:23
+ Date: 20/06/2025 16:11:15
 */
 
 SET NAMES utf8mb4;
@@ -32,7 +32,7 @@ CREATE TABLE `injection_param`  (
   `material_temperature` float NULL DEFAULT NULL COMMENT '料筒温度(℃)',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_task_id`(`task_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '注塑工艺参数表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '注塑工艺参数表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of injection_param
@@ -53,7 +53,7 @@ CREATE TABLE `print_pattern`  (
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_pattern_code`(`pattern_code`) USING BTREE,
   INDEX `idx_machine_model`(`machine_model`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '印刷图案信息表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '印刷图案信息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of print_pattern

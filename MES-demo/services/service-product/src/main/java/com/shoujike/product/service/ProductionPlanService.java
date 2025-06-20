@@ -1,23 +1,81 @@
 package com.shoujike.product.service;
 
-import com.shoujike.product.entity.ProductionPlan;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.shoujike.common.exception.EntityNotFoundException;
+import com.shoujike.product.model.DTO.PlanCreateDTO;
+import com.shoujike.product.model.DTO.TaskCreateDTO;
+import com.shoujike.product.model.entity.ProductionPlan;
+import com.shoujike.product.model.entity.ProductionTask;
 import com.shoujike.product.mapper.ProductionPlanMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class ProductionPlanService {
-    private final ProductionPlanMapper planMapper;
+public class ProductionPlanService extends ServiceImpl<ProductionPlanMapper, ProductionPlan> {
 
+    @Autowired
+    private ProductionTaskService taskService;
 
-    public ProductionPlan createPlan(ProductionPlan plan) {
-        plan.setStatus("draft");
-        planMapper.insert(plan);
+    @Transactional
+    public ProductionPlan createPlanWithTasks(PlanCreateDTO createDTO) {
+        // 转换为主实体
+        ProductionPlan plan = convertToEntity(createDTO);
+
+        // 保存计划
+        save(plan);
+
+        // 创建关联任务
+        List<ProductionTask> tasks = createDTO.getTasks().stream()
+                .map(dto -> convertToTaskEntity(dto, plan.getId()))
+                .collect(Collectors.toList());
+
+        taskService.saveBatch(tasks);
+
         return plan;
     }
 
-    public void issuePlan(Long planId) {
-        planMapper.updateStatus(planId, "issued");
+    public void updatePlanStatus(Integer id, String status) throws EntityNotFoundException {
+        ProductionPlan plan = getById(id);
+        if (plan == null) {
+            throw new EntityNotFoundException("生产计划不存在");
+        }
+
+        // 状态流转校验...
+        plan.setStatus(status);
+        updateById(plan);
+    }
+
+//    public Page<ProductionPlan> getPlansByStatus(String status, Pageable pageable) {
+//        LambdaQueryWrapper<ProductionPlan> wrapper = new LambdaQueryWrapper<>();
+//        if (StringUtils.isNotBlank(status)) {
+//            wrapper.eq(ProductionPlan::getStatus, status);
+//        }
+//        wrapper.orderByDesc(ProductionPlan::getPriority);
+//        return page(new Page<>(pageable.getPageNumber(), pageable.getPageSize()), wrapper);
+//    }
+
+    private ProductionPlan convertToEntity(PlanCreateDTO dto) {
+        ProductionPlan plan = new ProductionPlan();
+        // 映射字段...
+        return plan;
+    }
+
+    private ProductionTask convertToTaskEntity(TaskCreateDTO dto, Integer planId) {
+        ProductionTask task = new ProductionTask();
+        // 映射字段...
+        task.setPlanId(planId);
+        return task;
+    }
+
+    public Page<ProductionPlan> getPlansByStatus(String status, Pageable pageable) {
+        return null;
     }
 }

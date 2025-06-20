@@ -11,7 +11,7 @@
  Target Server Version : 80036
  File Encoding         : 65001
 
- Date: 19/06/2025 21:55:13
+ Date: 20/06/2025 16:11:28
 */
 
 SET NAMES utf8mb4;
@@ -28,11 +28,11 @@ CREATE TABLE `production_plan`  (
   `total_quantity` int(0) NOT NULL COMMENT '总生产数量',
   `priority` int(0) NULL DEFAULT 0 COMMENT '优先级',
   `status` enum('draft','issued','completed') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'draft' COMMENT '状态:草稿、已下发、已完成',
-  `create_time` datetime(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0) COMMENT '创建时间',
+  `create_time` datetime(0) NULL DEFAULT CURRENT_TIMESTAMP(0) COMMENT '创建时间',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_plan_code`(`plan_code`) USING BTREE,
   INDEX `idx_status`(`status`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '生产计划表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 12 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '生产计划表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of production_plan
@@ -47,6 +47,7 @@ INSERT INTO `production_plan` VALUES (7, 'PLAN-20230606-001', '荣耀Magic5手�
 INSERT INTO `production_plan` VALUES (8, 'PLAN-20230607-001', '红米Note12手机壳', 4500, 1, 'issued', '2023-06-07 10:00:00');
 INSERT INTO `production_plan` VALUES (9, 'PLAN-20230608-001', '一加11手机壳', 1800, 3, 'completed', '2023-06-08 15:20:00');
 INSERT INTO `production_plan` VALUES (10, 'PLAN-20230609-001', 'realme GT3手机壳', 2200, 2, 'issued', '2023-06-09 11:45:00');
+INSERT INTO `production_plan` VALUES (11, 'PLAN-2025-001', '高端数控机床', 1000, 1, 'draft', NULL);
 
 -- ----------------------------
 -- Table structure for production_task
@@ -67,7 +68,7 @@ CREATE TABLE `production_task`  (
   INDEX `idx_plan_id`(`plan_id`) USING BTREE,
   INDEX `idx_device_id`(`device_id`) USING BTREE,
   INDEX `idx_status`(`status`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '生产任务表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 15 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '生产任务表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of production_task

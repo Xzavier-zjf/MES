@@ -1,7 +1,7 @@
 package com.shoujike.product.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.shoujike.product.entity.ProductionPlan;
+import com.shoujike.product.model.entity.ProductionPlan;
 import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
