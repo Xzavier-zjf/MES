@@ -30,7 +30,7 @@
         </dependency>
         <dependency>
             <groupId>com.shoujike</groupId>
-            <artifactId>service-product</artifactId>
+            <artifactId>service-production</artifactId>
             <version>0.0.1-SNAPSHOT</version>
             <scope>compile</scope>
         </dependency>

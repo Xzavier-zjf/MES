@@ -5,3 +5,19 @@ spring:
     nacos:
       discovery:
         server-addr: 127.0.0.1:8848
+    gateway:
+      routes:
+        - id: service-production
+          uri: lb://service-production
+          predicates:
+            - Path=/api/v1/production/**
+
+        - id: service-equipment
+          uri: lb://service-equipment
+          predicates:
+            - Path=/api/v1/equipment/**
+
+        - id: service-process
+          uri: lb://service-process
+          predicates:
+            - Path=/api/v1/process/**

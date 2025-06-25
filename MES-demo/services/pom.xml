@@ -11,7 +11,7 @@
 
     <packaging>pom</packaging>
     <modules>
-        <module>service-product</module>
+        <module>service-production</module>
         <module>service-equipment</module>
         <module>common-module</module>
         <module>service-process</module>
