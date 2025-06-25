@@ -24,10 +24,23 @@ public class ProductionTaskService extends ServiceImpl<ProductionTaskMapper, Pro
     private EquipmentClient equipmentClient;
 
     @Transactional
-    public ProductionTask createTask(TaskCreateDTO createDTO) {
+    public ProductionTask createTask(TaskCreateDTO createDTO, Integer planId) {
         ProductionTask task = new ProductionTask();
-        // 映射字段...
+
+        // 设置必填字段
+        task.setPlanId(planId); // ❗从方法参数传入
+        task.setDeviceId(createDTO.getDeviceId());
+        task.setProcessType(createDTO.getProcessType());
+        task.setQuantity(createDTO.getQuantity());
+        task.setStartTime(createDTO.getStartTime());
+        task.setEndTime(createDTO.getEndTime());
+
+        // 默认状态
+        task.setStatus("未开始");
+
+        // 保存到数据库（MyBatis-Plus 的 save 方法）
         save(task);
+
         return task;
     }
 

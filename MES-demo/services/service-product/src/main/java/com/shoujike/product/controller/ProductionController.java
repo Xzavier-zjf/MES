@@ -70,12 +70,14 @@ public class ProductionController {
     // ------------------- 生产任务管理 -------------------
     @PostMapping("/tasks")
     public ResponseEntity<TaskDTO> createProductionTask(
-            @Valid @RequestBody TaskCreateDTO createDTO) {
+            @Valid @RequestBody TaskCreateDTO createDTO,
+            @RequestParam Integer planId) {
 
-        ProductionTask task = taskService.createTask(createDTO);
+        ProductionTask task = taskService.createTask(createDTO, planId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(convertToTaskDTO(task));
     }
+
 
     @PutMapping("/tasks/{id}/status")
     public ResponseEntity<Void> updateTaskStatus(
