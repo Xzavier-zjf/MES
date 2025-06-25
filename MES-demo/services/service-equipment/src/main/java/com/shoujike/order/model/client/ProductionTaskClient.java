@@ -17,5 +17,5 @@ public interface ProductionTaskClient {
             @PathVariable Integer deviceId,
             @RequestParam String period);
 
-    ResponseEntity<com.shoujike.product.model.DTO.TaskDTO> getTaskById(Integer taskId);
+
 }

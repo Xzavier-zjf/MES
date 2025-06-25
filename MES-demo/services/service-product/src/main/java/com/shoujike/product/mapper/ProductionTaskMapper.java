@@ -17,7 +17,9 @@ public interface ProductionTaskMapper extends BaseMapper<ProductionTask> {
 
     @Update("UPDATE production_task SET status = #{status} WHERE id = #{taskId}")
     int updateStatus(@Param("taskId") Long taskId, @Param("status") String status);
+    @Select("SELECT SUM(quantity) FROM production_task WHERE plan_id = #{planId}")
+    Integer sumCompletedQuantityByPlan(@Param("planId") Integer planId);
 
-    Integer sumCompletedQuantityByPlan(Integer planId);
+
 }
 

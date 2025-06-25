@@ -10,5 +10,5 @@ public class TaskCreateDTO {
     private String processType;
     private Integer quantity;
     private LocalDateTime startTime;
-
+    private LocalDateTime endTime;
 }

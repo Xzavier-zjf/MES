@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -64,16 +65,27 @@ public class ProductionPlanService extends ServiceImpl<ProductionPlanMapper, Pro
 
     private ProductionPlan convertToEntity(PlanCreateDTO dto) {
         ProductionPlan plan = new ProductionPlan();
-        // 映射字段...
+
+
+
+        plan.setPlanCode(dto.getPlanCode());  // ✅ 重点是这一行
+        plan.setProductName(dto.getProductName());
+        plan.setTotalQuantity(dto.getTotalQuantity());
+        plan.setCreateTime(LocalDateTime.now());
         return plan;
     }
 
     private ProductionTask convertToTaskEntity(TaskCreateDTO dto, Integer planId) {
         ProductionTask task = new ProductionTask();
-        // 映射字段...
         task.setPlanId(planId);
+        task.setDeviceId(dto.getDeviceId());              // ⭐ 必填：device_id
+        task.setProcessType(dto.getProcessType());        // ⭐ 工序类型
+        task.setQuantity(dto.getQuantity());              // ⭐ 数量
+        task.setStartTime(dto.getStartTime()); // ⭐ 计划开始时间
+        task.setEndTime(dto.getEndTime());     // ⭐ 计划结束时间
         return task;
     }
+
 
     public Page<ProductionPlan> getPlansByStatus(String status, Pageable pageable) {
         return null;
