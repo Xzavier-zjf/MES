@@ -1,10 +1,12 @@
 spring:
   application:
     name: gateway
+
   cloud:
     nacos:
       discovery:
         server-addr: 127.0.0.1:8848
+
     gateway:
       routes:
         - id: service-production
@@ -21,3 +23,17 @@ spring:
           uri: lb://service-process
           predicates:
             - Path=/api/v1/process/**
+
+      globalcors:
+        cors-configurations:
+          '[/**]':        # 对所有路径生效
+            allowedOrigins: "http://localhost:5173"  # 你的前端地址，根据实际改
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+

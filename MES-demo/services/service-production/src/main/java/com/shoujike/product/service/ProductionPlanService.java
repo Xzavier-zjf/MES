@@ -1,5 +1,7 @@
 package com.shoujike.product.service;
 
+import com.alibaba.cloud.commons.lang.StringUtils;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.shoujike.common.exception.EntityNotFoundException;
 import com.shoujike.product.model.DTO.PlanCreateDTO;
@@ -9,6 +11,7 @@ import com.shoujike.product.model.entity.ProductionTask;
 import com.shoujike.product.mapper.ProductionPlanMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,11 +37,11 @@ public class ProductionPlanService extends ServiceImpl<ProductionPlanMapper, Pro
         save(plan);
 
         // 创建关联任务
-        List<ProductionTask> tasks = createDTO.getTasks().stream()
-                .map(dto -> convertToTaskEntity(dto, plan.getId()))
-                .collect(Collectors.toList());
-
-        taskService.saveBatch(tasks);
+//        List<ProductionTask> tasks = createDTO.getTasks().stream()
+//                .map(dto -> convertToTaskEntity(dto, plan.getId()))
+//                .collect(Collectors.toList());
+//
+//        taskService.saveBatch(tasks);
 
         return plan;
     }
@@ -54,14 +57,34 @@ public class ProductionPlanService extends ServiceImpl<ProductionPlanMapper, Pro
         updateById(plan);
     }
 
-//    public Page<ProductionPlan> getPlansByStatus(String status, Pageable pageable) {
-//        LambdaQueryWrapper<ProductionPlan> wrapper = new LambdaQueryWrapper<>();
-//        if (StringUtils.isNotBlank(status)) {
-//            wrapper.eq(ProductionPlan::getStatus, status);
-//        }
-//        wrapper.orderByDesc(ProductionPlan::getPriority);
-//        return page(new Page<>(pageable.getPageNumber(), pageable.getPageSize()), wrapper);
-//    }
+    public Page<ProductionPlan> getPlansByStatus(String status, Pageable pageable) {
+        LambdaQueryWrapper<ProductionPlan> wrapper = new LambdaQueryWrapper<>();
+        if (StringUtils.isNotBlank(status)) {
+            wrapper.eq(ProductionPlan::getStatus, status);
+        }
+        wrapper.orderByDesc(ProductionPlan::getPriority);
+
+        // PageHelper 的页码从1开始，而Pageable从0开始
+        long current = pageable.getPageNumber() + 1;
+        long size = pageable.getPageSize();
+
+        // 使用 MyBatis-Plus 提供的分页
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<ProductionPlan> mpPage =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(current, size);
+
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<ProductionPlan> result =
+                this.page(mpPage, wrapper);
+
+        // ✅ Null 安全处理
+        if (result == null || result.getRecords() == null) {
+            return Page.empty(pageable);
+        }
+
+        // ✅ 转为 Spring Page 并返回
+        return new PageImpl<>(result.getRecords(), pageable, result.getTotal());
+    }
+
+
 
     private ProductionPlan convertToEntity(PlanCreateDTO dto) {
         ProductionPlan plan = new ProductionPlan();
@@ -87,7 +110,4 @@ public class ProductionPlanService extends ServiceImpl<ProductionPlanMapper, Pro
     }
 
 
-    public Page<ProductionPlan> getPlansByStatus(String status, Pageable pageable) {
-        return null;
-    }
 }

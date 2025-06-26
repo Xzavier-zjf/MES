@@ -21,6 +21,7 @@ import com.shoujike.process.service.InjectionParamService;
 import com.shoujike.process.service.PrintPatternService;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/process")
@@ -39,11 +40,23 @@ public class ProcessController {
 
     // ================ 注塑工艺参数管理 ================
     @PostMapping("/injection-params")
-    public ResponseEntity<InjectionParamDTO> createInjectionParam(
-            @Valid @RequestBody InjectionParamCreateDTO createDTO) throws BusinessException {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(injectionParamService.createInjectionParam(createDTO));
+    public ResponseEntity<?> createInjectionParam(
+            @Valid @RequestBody InjectionParamCreateDTO createDTO) {
+        try {
+            InjectionParamDTO dto = injectionParamService.createInjectionParam(createDTO);
+            return ResponseEntity.status(HttpStatus.CREATED).body(dto);
+        } catch (BusinessException ex) {
+            ex.printStackTrace();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", ex.getMessage() != null ? ex.getMessage() : "业务异常"));
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "服务器内部错误"));
+        }
     }
+
+
 
     @PutMapping("/injection-params/{id}")
     public ResponseEntity<InjectionParamDTO> updateInjectionParam(

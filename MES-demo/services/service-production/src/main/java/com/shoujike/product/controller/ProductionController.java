@@ -63,9 +63,16 @@ public class ProductionController {
             @PageableDefault(size = 10, sort = "createTime", direction = Sort.Direction.DESC) Pageable pageable) {
 
         Page<ProductionPlan> plans = planService.getPlansByStatus(status, pageable);
+
+        // 防止 plans 为 null 的极端情况
+        if (plans == null || plans.isEmpty()) {
+            return ResponseEntity.ok(Page.empty(pageable));
+        }
+
         Page<PlanDTO> dtoPage = plans.map(this::convertToPlanDTO);
         return ResponseEntity.ok(dtoPage);
     }
+
 
     // ------------------- 生产任务管理 -------------------
     @PostMapping("/tasks")
@@ -89,6 +96,11 @@ public class ProductionController {
 
         taskService.updateTaskStatus(id, status, actualEndTime);
         return ResponseEntity.ok().build();
+    }
+    @GetMapping("/tasks/{id}")
+    public ResponseEntity<TaskDTO> getTaskById(@PathVariable Integer id) throws EntityNotFoundException {
+        ProductionTask task = taskService.getTaskById(id); // 你自己实现获取逻辑
+        return ResponseEntity.ok(convertToTaskDTO(task));
     }
 
     @GetMapping("/plans/{planId}/tasks")

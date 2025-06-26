@@ -100,14 +100,15 @@ public class InjectionParamServiceImpl implements InjectionParamService {
     }
 
     private void verifyTaskExists(Integer taskId) throws BusinessException {
-        // 通过Feign调用生产服务验证任务是否存在
         try {
             ResponseEntity<TaskDTO> response = productionTaskClient.getTaskById(taskId);
-            if (!response.getStatusCode().is2xxSuccessful()) {
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
                 throw new BusinessException("关联的任务不存在");
             }
         } catch (Exception e) {
-            throw new BusinessException("验证任务时出错: " + e.getMessage());
+            String msg = e.getMessage() != null ? e.getMessage() : e.toString();
+            throw new BusinessException("验证任务时出错: " + msg);
         }
     }
+
 }

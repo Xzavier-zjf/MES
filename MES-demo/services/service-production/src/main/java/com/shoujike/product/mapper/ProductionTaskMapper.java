@@ -12,14 +12,17 @@ import java.util.List;
 @Mapper
 public interface ProductionTaskMapper extends BaseMapper<ProductionTask> {
 
-    @Select("SELECT * FROM production_task WHERE plan_id = #{planId} ORDER BY create_time DESC")
+    @Select("SELECT * FROM production_task WHERE plan_id = #{planId}")
     List<ProductionTask> selectByPlanId(@Param("planId") Long planId);
+
 
     @Update("UPDATE production_task SET status = #{status} WHERE id = #{taskId}")
     int updateStatus(@Param("taskId") Long taskId, @Param("status") String status);
     @Select("SELECT SUM(quantity) FROM production_task WHERE plan_id = #{planId}")
     Integer sumCompletedQuantityByPlan(@Param("planId") Integer planId);
 
+    @Select("SELECT * FROM production_task WHERE device_id = #{deviceId} AND status = #{status}")
+    List<ProductionTask> selectByDeviceAndStatus(@Param("deviceId") Integer deviceId, @Param("status") String status);
 
 }
 

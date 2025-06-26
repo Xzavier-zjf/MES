@@ -22,6 +22,8 @@ public class ProductionTaskService extends ServiceImpl<ProductionTaskMapper, Pro
 
     @Autowired
     private EquipmentClient equipmentClient;
+    @Autowired
+    private ProductionTaskMapper productionTaskMapper;
 
     @Transactional
     public ProductionTask createTask(TaskCreateDTO createDTO, Integer planId) {
@@ -58,16 +60,24 @@ public class ProductionTaskService extends ServiceImpl<ProductionTaskMapper, Pro
         updateById(task);
     }
 
+
     public List<ProductionTask> getTasksByPlan(Integer planId) {
-        // 查询实现...
-        return List.of();
+        return productionTaskMapper.selectByPlanId(Long.valueOf(planId));
     }
+
 
     public List<ProductionTask> getTasksByDevice(Integer deviceId, String status) {
-        // 查询实现...
-        return List.of();
+        return productionTaskMapper.selectByDeviceAndStatus(deviceId, status);
     }
 
+
+    public ProductionTask getTaskById(Integer id) throws EntityNotFoundException {
+        ProductionTask task = productionTaskMapper.selectById(id);
+        if (task == null) {
+            throw new EntityNotFoundException("任务ID不存在: " + id);
+        }
+        return task;
+    }
     public void reportTaskProgress(Integer taskId, Integer completedQuantity) throws EntityNotFoundException {
         ProductionTask task = getById(taskId);
         if (task == null) {

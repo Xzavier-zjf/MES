@@ -1,10 +1,15 @@
 package com.shoujike.common.exception;
 
-public class BusinessException extends  Exception {
-    public String getMessage() {
-        return null;
-    }
+public class BusinessException extends Exception {
+    private final String message;
+
     public BusinessException(String message) {
-        super(message); // 调用父类的构造函数
+        super(message); // 这一步是关键！
+        this.message = message;
+    }
+
+    @Override
+    public String getMessage() {
+        return this.message;
     }
 }

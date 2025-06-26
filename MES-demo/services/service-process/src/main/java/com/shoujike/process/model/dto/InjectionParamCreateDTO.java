@@ -14,7 +14,6 @@ public class InjectionParamCreateDTO {
     @NotNull(message = "注塑速度不能为空")
     private Float injectionSpeed;
 
-    @NotNull(message = "保压时间不能为空")
     private Float holdTime;
 
     @NotNull(message = "冷却时间不能为空")

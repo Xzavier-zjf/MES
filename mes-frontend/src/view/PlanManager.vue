@@ -33,24 +33,21 @@
           size="small"
           clearable
           style="width: 220px"
+          @input="fetchPlans"
         />
         <el-select
-          v-model="filter.priority"
-          placeholder="优先级"
+          v-model="filter.status"
+          placeholder="状态"
           size="small"
           clearable
           style="width: 120px"
+          @change="fetchPlans"
         >
-          <el-option label="高" value="高" />
-          <el-option label="中" value="中" />
-          <el-option label="低" value="低" />
+          <el-option label="草稿" value="草稿" />
+          <el-option label="已下发" value="已下发" />
+          <el-option label="进行中" value="进行中" />
+          <el-option label="已完成" value="已完成" />
         </el-select>
-        <el-date-picker
-          v-model="filter.date"
-          type="date"
-          placeholder="创建时间"
-          size="small"
-        />
         <el-button type="primary" size="small" icon="Plus" @click="openDialog">
           添加计划
         </el-button>
@@ -60,13 +57,13 @@
     <!-- 表格展示区域 -->
     <el-card class="table-card" shadow="always">
       <el-table :data="filteredPlans" style="width: 100%" border>
-        <el-table-column prop="plan_code" label="计划编号" width="150" />
-        <el-table-column prop="product_name" label="产品名称" width="200" />
-        <el-table-column prop="total_quantity" label="生产数量" width="120" />
+        <el-table-column prop="planCode" label="计划编号" width="150" />
+        <el-table-column prop="productName" label="产品名称" width="200" />
+        <el-table-column prop="totalQuantity" label="生产数量" width="120" />
         <el-table-column prop="priority" label="优先级" width="100">
           <template #default="scope">
             <el-tag :type="priorityTagType(scope.row.priority)">
-              {{ scope.row.priority }}
+              {{ convertPriority(scope.row.priority) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -77,7 +74,11 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="create_time" label="创建时间" width="180" />
+        <el-table-column prop="createTime" label="创建时间" width="180">
+          <template #default="scope">
+            {{ formatDate(scope.row.createTime) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="160">
           <template #default="scope">
             <el-button size="small" type="primary" plain @click="editPlan(scope.row)">编辑</el-button>
@@ -85,31 +86,46 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- 分页组件 -->
+      <el-pagination
+        style="margin-top: 20px; text-align: right;"
+        background
+        layout="total, sizes, prev, pager, next, jumper"
+        :total="total"
+        :page-size="size"
+        :current-page="page"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+        :page-sizes="[5, 10, 20, 50]"
+      />
     </el-card>
 
     <!-- 新增/编辑弹窗 -->
     <el-dialog :title="isEditMode ? '编辑计划' : '新增计划'" v-model="dialogVisible" width="500px">
       <el-form :model="form" label-width="100px">
         <el-form-item label="计划编号">
-          <el-input v-model="form.plan_code" :disabled="isEditMode" />
+          <el-input v-model="form.planCode" :disabled="isEditMode" />
         </el-form-item>
         <el-form-item label="产品名称">
-          <el-input v-model="form.product_name" />
+          <el-input v-model="form.productName" />
         </el-form-item>
         <el-form-item label="数量">
-          <el-input-number v-model="form.total_quantity" :min="1" />
+          <el-input-number v-model="form.totalQuantity" :min="1" />
         </el-form-item>
         <el-form-item label="优先级">
           <el-select v-model="form.priority" placeholder="请选择">
-            <el-option label="高" value="高" />
-            <el-option label="中" value="中" />
-            <el-option label="低" value="低" />
+            <el-option label="高" value="1" />
+            <el-option label="中" value="2" />
+            <el-option label="低" value="3" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="form.status" placeholder="请选择">
             <el-option label="草稿" value="草稿" />
             <el-option label="已下发" value="已下发" />
+            <el-option label="进行中" value="进行中" />
+            <el-option label="已完成" value="已完成" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -124,70 +140,127 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
 import dayjs from 'dayjs'
-
-const route = useRoute()
 
 const dialogVisible = ref(false)
 const isEditMode = ref(false)
+const plans = ref([])
+const page = ref(1)
+const size = ref(10)
+const total = ref(0)
 
 const form = ref({
-  plan_code: '',
-  product_name: '',
-  total_quantity: 0,
+  planCode: '',
+  productName: '',
+  totalQuantity: 0,
   status: '',
   priority: '',
 })
 
 const filter = ref({
   keyword: '',
-  priority: '',
-  date: null,
+  status: '',
 })
-
-const plans = ref([
-  {
-    plan_code: 'P20240601',
-    product_name: '手机壳A款',
-    total_quantity: 1000,
-    status: '已下发',
-    priority: '高',
-    create_time: '2025-06-18 10:30',
-  },
-  {
-    plan_code: 'P20240602',
-    product_name: '手机壳B款',
-    total_quantity: 500,
-    status: '草稿',
-    priority: '中',
-    create_time: '2025-06-17 16:00',
-  },
-])
 
 const navItems = [
   { name: '首页', path: '/home' },
   { name: '任务管理', path: '/task' },
   { name: '设备监控', path: '/device' },
   { name: '注塑参数', path: '/injection' },
-   { name: '图案参数', path: '/pattern' },
+  { name: '图案参数', path: '/pattern' },
 ]
 
-const filteredPlans = computed(() => {
-  return plans.value.filter(plan => {
-    const keywordMatch = !filter.value.keyword ||
-      plan.plan_code.includes(filter.value.keyword) ||
-      plan.product_name.includes(filter.value.keyword)
+const fetchPlans = async () => {
+  try {
+    let query = `?page=${page.value - 1}&size=${size.value}`
+    if (filter.value.status) {
+      query += `&status=${filter.value.status}`
+    }
+    if (filter.value.keyword) {
+      // 后端如果支持模糊搜索，可以加 keyword 参数，否则去掉或改成对应参数名
+      query += `&keyword=${encodeURIComponent(filter.value.keyword)}`
+    }
+    const res = await fetch(`http://localhost:8080/api/v1/production/plans${query}`)
+    const data = await res.json()
 
-    const priorityMatch = !filter.value.priority || plan.priority === filter.value.priority
+    // 赋值时转换优先级和时间格式，方便展示
+    plans.value = data.content.map(item => ({
+      ...item,
+      priority: item.priority,
+      createTime: item.createTime,
+    }))
+    total.value = data.totalElements
+  } catch (err) {
+    console.error('加载计划失败', err)
+  }
+}
 
-    const dateMatch = !filter.value.date ||
-      dayjs(plan.create_time).format('YYYY-MM-DD') === dayjs(filter.value.date).format('YYYY-MM-DD')
-
-    return keywordMatch && priorityMatch && dateMatch
-  })
+onMounted(() => {
+  fetchPlans()
 })
+
+const handleSizeChange = (val) => {
+  size.value = val
+  page.value = 1
+  fetchPlans()
+}
+
+const handleCurrentChange = (val) => {
+  page.value = val
+  fetchPlans()
+}
+
+const openDialog = () => {
+  isEditMode.value = false
+  form.value = {
+    planCode: '',
+    productName: '',
+    totalQuantity: 0,
+    status: '',
+    priority: '',
+  }
+  dialogVisible.value = true
+}
+
+const editPlan = (row) => {
+  isEditMode.value = true
+  form.value = { ...row }
+  dialogVisible.value = true
+}
+
+const submitForm = async () => {
+  if (
+    form.value.planCode &&
+    form.value.productName &&
+    form.value.totalQuantity &&
+    form.value.status &&
+    form.value.priority
+  ) {
+    try {
+      const response = await fetch('http://localhost:8080/api/v1/production/plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form.value)
+      })
+
+      if (!response.ok) throw new Error('添加失败')
+
+      dialogVisible.value = false
+      fetchPlans()
+    } catch (err) {
+      alert('提交失败，请检查后端接口')
+      console.error(err)
+    }
+  } else {
+    alert('请填写完整表单信息！')
+  }
+}
+
+const deletePlan = (row) => {
+  // 这里最好调用后端删除接口，删除成功后刷新列表
+  plans.value = plans.value.filter(p => p.planCode !== row.planCode)
+}
 
 const statusTagType = (status) => {
   switch (status) {
@@ -198,56 +271,38 @@ const statusTagType = (status) => {
     default: return ''
   }
 }
+
 const priorityTagType = (priority) => {
   switch (priority) {
-    case '高': return 'danger'
-    case '中': return 'warning'
-    case '低': return 'info'
+    case '1': return 'success'
+    case '2': return 'warning'
+    case '3': return 'info'
     default: return ''
   }
 }
 
-const openDialog = () => {
-  isEditMode.value = false
-  form.value = {
-    plan_code: '',
-    product_name: '',
-    total_quantity: 0,
-    status: '',
-    priority: '',
-  }
-  dialogVisible.value = true
-}
-const editPlan = (row) => {
-  isEditMode.value = true
-  form.value = { ...row }
-  dialogVisible.value = true
-}
-const submitForm = () => {
-  if (
-    form.value.plan_code &&
-    form.value.product_name &&
-    form.value.total_quantity &&
-    form.value.status &&
-    form.value.priority
-  ) {
-    if (isEditMode.value) {
-      const idx = plans.value.findIndex(p => p.plan_code === form.value.plan_code)
-      if (idx !== -1) plans.value[idx] = { ...form.value }
-    } else {
-      plans.value.push({
-        ...form.value,
-        create_time: dayjs().format('YYYY-MM-DD HH:mm')
-      })
-    }
-    dialogVisible.value = false
-  } else {
-    alert('请填写完整表单信息！')
+const convertPriority = (val) => {
+  switch (val) {
+    case '1': return '高'
+    case '2': return '中'
+    case '3': return '低'
+    default: return val
   }
 }
-const deletePlan = (row) => {
-  plans.value = plans.value.filter(p => p.plan_code !== row.plan_code)
+
+const formatDate = (dateStr) => {
+  return dateStr ? dayjs(dateStr).format('YYYY-MM-DD HH:mm') : ''
 }
+
+const filteredPlans = computed(() => {
+  // 关键字过滤：计划编号和产品名称
+  if (!filter.value.keyword) return plans.value
+  const kw = filter.value.keyword.toLowerCase()
+  return plans.value.filter(plan => 
+    (plan.planCode && plan.planCode.toLowerCase().includes(kw)) ||
+    (plan.productName && plan.productName.toLowerCase().includes(kw))
+  )
+})
 </script>
 
 <style scoped>

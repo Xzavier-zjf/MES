@@ -12,6 +12,6 @@ public class PlanCreateDTO {
     private String productName;
     private Integer totalQuantity;
     private Integer priority;
-    private List<TaskCreateDTO> tasks;
+//    private List<TaskCreateDTO> tasks;
 
 }
