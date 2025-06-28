@@ -23,21 +23,21 @@
     </p>
 
     <!-- 统计卡片 -->
-    <div class="stats-container">
+     <div class="stats-container">
       <div class="stat-card fade-in delay-1">
-        <div class="stat-value">24</div>
+        <div class="stat-value">{{ props.totalTasks }}</div>
         <div class="stat-label">总任务数</div>
       </div>
       <div class="stat-card fade-in delay-2">
-        <div class="stat-value">8</div>
+        <div class="stat-value">{{ props.inProgressTasks }}</div>
         <div class="stat-label">进行中</div>
       </div>
       <div class="stat-card fade-in delay-3">
-        <div class="stat-value">12</div>
+        <div class="stat-value">{{ props.completedTasks }}</div>
         <div class="stat-label">已完成</div>
       </div>
       <div class="stat-card fade-in delay-4">
-        <div class="stat-value">4</div>
+        <div class="stat-value">{{ props.pendingTasks }}</div>
         <div class="stat-label">待下发</div>
       </div>
     </div>
@@ -51,6 +51,26 @@ const go = (path) => {
   console.log('点击跳转到:', path)
   router.push(path)
 }
+
+// 保留props，设置默认值，防止未传数据报错
+const props = defineProps({
+  totalTasks: {
+    type: Number,
+    default: 0
+  },
+  inProgressTasks: {
+    type: Number,
+    default: 0
+  },
+  completedTasks: {
+    type: Number,
+    default: 0
+  },
+  pendingTasks: {
+    type: Number,
+    default: 0
+  },
+})
 </script>
 
 <style scoped>
