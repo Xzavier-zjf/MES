@@ -1,40 +1,41 @@
 <template>
   <div class="task-manager-page">
-    <!-- 头部信息统计卡片 -->
-    <HeaderSection />
+    <HeaderSection 
+    :totalTasks="totalTasks"
+  :inProgressTasks="inProgressTasks"
+  :completedTasks="completedTasks"
+  :pendingTasks="pendingTasks"/>
 
-    <!-- 筛选区域 -->
-    <FilterSection
-      :filters="filters"
+    <TaskFilter
+      v-model:filters="filters"
       @filter="filterTasks"
       @reset="resetFilters"
       @create="openCreateDialog"
     />
 
-    <!-- 表格区域 -->
     <TaskTable
-      :tasks="filteredTasks"
+      :tasks="tasks"
       @edit="editTask"
       @delete="deleteTask"
     />
 
-    <!-- 弹窗区域 -->
     <TaskDialog
-      v-model:visible="dialogVisible"
-      :form="form"
-      :is-editing="isEditing"
-      :plan-options="planOptions"
-      :process-types="processTypes"
-      :device-options="deviceOptions"
+      :visible="dialogVisible"
+      :modelValue="form"
+      :planOptions="planOptions"
+      :processTypes="processTypes"
+      :deviceOptions="deviceOptions"
+      :isEditing="isEditing"
+      @update:visible="val => dialogVisible = val"
       @submit="submitTask"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed,onMounted } from 'vue'
 import HeaderSection from '@/components/HeaderSection.vue'
-import FilterSection from '@/components/TaskFilter.vue'
+import TaskFilter from '@/components/TaskFilter.vue'
 import TaskTable from '@/components/TaskTable.vue'
 import TaskDialog from '@/components/TaskDialog.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -45,29 +46,15 @@ const filters = ref({
   status: ''
 })
 
-const tasks = ref([
-  { taskId: 'T001', planCode: 'P20240601', processType: '注塑', deviceCode: 'D001', quantity: 100, status: '进行中', description: 'A型零件注塑生产' },
-  { taskId: 'T002', planCode: 'P20240602', processType: '印刷', deviceCode: 'D002', quantity: 200, status: '待下发', description: '产品外壳图案印刷' },
-  { taskId: 'T003', planCode: 'P20240601', processType: '注塑', deviceCode: 'D003', quantity: 150, status: '已完成', description: 'B型零件注塑生产' },
-  { taskId: 'T004', planCode: 'P20240603', processType: '组装', deviceCode: 'D004', quantity: 80, status: '进行中', description: '最终产品组装' },
-  { taskId: 'T005', planCode: 'P20240604', processType: '质检', deviceCode: 'D005', quantity: 120, status: '待下发', description: '成品质量检查' },
-  { taskId: 'T006', planCode: 'P20240602', processType: '印刷', deviceCode: 'D002', quantity: 180, status: '已完成', description: '包装盒印刷' },
-])
-
-const filteredTasks = computed(() => {
-  return tasks.value.filter(task => {
-    return (
-      (!filters.value.planCode || task.planCode.includes(filters.value.planCode)) &&
-      (!filters.value.processType || task.processType === filters.value.processType) &&
-      (!filters.value.status || task.status === filters.value.status)
-    )
-  })
-})
-
-const planOptions = ['P20240601', 'P20240602', 'P20240603', 'P20240604', 'P20240605']
+const tasks = ref([])
+const planOptions = ref([])
+const planMap = ref({})
+const reversePlanMap = ref({})
 const processTypes = ['注塑', '印刷', '组装', '质检', '包装']
-const deviceOptions = ['D001', 'D002', 'D003', 'D004', 'D005', 'D006']
+const deviceOptions = ref([])
+const deviceMap = ref({})
 
+// 对话框状态
 const dialogVisible = ref(false)
 const isEditing = ref(false)
 const form = ref({
@@ -76,53 +63,221 @@ const form = ref({
   processType: '',
   deviceCode: '',
   quantity: 100,
-  status: '待下发',
-  description: ''
+  status: '待下发'
 })
 
-const resetFilters = () => {
+// 清空筛选并重新加载任务
+const resetFilters = async () => {
   filters.value = { planCode: '', processType: '', status: '' }
+  await filterTasks()
+}
+// 计算统计数据
+const totalTasks = computed(() => tasks.value.length)
+const inProgressTasks = computed(() => tasks.value.filter(t => t.status === '进行中').length)
+const completedTasks = computed(() => tasks.value.filter(t => t.status === '已完成').length)
+const pendingTasks = computed(() => tasks.value.filter(t => t.status === '待下发').length)
+// 获取任务列表
+const filterTasks = async () => {
+  try {
+    const params = new URLSearchParams()
+    if (filters.value.planCode) params.append('planCode', filters.value.planCode.trim())
+    if (filters.value.processType) params.append('processType', filters.value.processType.trim())
+    if (filters.value.status) params.append('status', filters.value.status.trim())
+    params.append('page', '0')
+    params.append('size', '100')
+
+    const res = await fetch(`http://localhost:8080/api/v1/production/tasks?${params.toString()}`)
+    if (!res.ok) throw new Error(`服务器异常: ${res.status}`)
+
+    const data = await res.json()
+    tasks.value = data.content.map(task => {
+      const planCode = reversePlanMap.value[task.planId] || ''
+      const deviceCode = Object.keys(deviceMap.value).find(code => deviceMap.value[code] === task.deviceId) || ''
+      return {
+        ...task,
+        taskId: `TASK-${String(task.id).padStart(4, '0')}`,
+        planCode,
+        deviceCode
+      }
+    })
+  } catch (err) {
+    console.error('filterTasks 错误:', err)
+    ElMessage.error(`获取任务失败: ${err.message}`)
+  }
 }
 
-const filterTasks = () => {
-  // 由于使用 computed，会自动更新
-}
-
+// 打开创建弹窗
 const openCreateDialog = () => {
   isEditing.value = false
   dialogVisible.value = true
-  form.value = { taskId: '', planCode: '', processType: '', deviceCode: '', quantity: 100, status: '待下发', description: '' }
-}
-
-const submitTask = (data) => {
-  if (isEditing.value) {
-    const index = tasks.value.findIndex(t => t.taskId === data.taskId)
-    if (index !== -1) tasks.value[index] = { ...data }
-    ElMessage.success('任务更新成功')
-  } else {
-    const newTask = { ...data, taskId: `T${Math.floor(1000 + Math.random() * 9000)}` }
-    tasks.value.push(newTask)
-    ElMessage.success('任务创建成功')
+  form.value = {
+    taskId: '',
+    planCode: '',
+    processType: '',
+    deviceCode: '',
+    quantity: 100,
+    status: '待下发'
   }
-  dialogVisible.value = false
 }
 
+// 编辑任务：打开弹窗并填充数据
 const editTask = (task) => {
-  form.value = { ...task }
+  form.value = {
+    taskId: task.taskId || '',
+    planCode: task.planCode || '',
+    processType: task.processType || '',
+    deviceCode: task.deviceCode || '',
+    quantity: task.quantity || 1,
+    status: task.status || '待下发'
+  }
   isEditing.value = true
   dialogVisible.value = true
 }
 
-const deleteTask = (task) => {
-  ElMessageBox.confirm(`确定要删除任务 ${task.taskId} 吗？`, '删除确认', {
-    confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning'
-  }).then(() => {
+// 提交任务（创建或更新）
+const submitTask = async (data) => {
+  try {
+    const planId = planMap.value[data.planCode]
+    const deviceId = deviceMap.value[data.deviceCode]
+    if (!planId || !deviceId) return ElMessage.error('请选择有效的计划或设备编号')
+
+    let res
+    if (isEditing.value) {
+      // 编辑更新任务（假设用PUT）
+      const taskIdNum = parseInt(data.taskId?.replace('TASK-', '')) || 0
+      if (!taskIdNum) return ElMessage.error('任务ID无效，无法更新')
+
+      res = await fetch(`http://localhost:8080/api/v1/production/tasks/${taskIdNum}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planId,
+          deviceId,
+          processType: data.processType,
+          quantity: data.quantity,
+          status: data.status
+        })
+      })
+    } else {
+      // 新建任务
+      res = await fetch(`http://localhost:8080/api/v1/production/tasks?planId=${planId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deviceId,
+          processType: data.processType,
+          quantity: data.quantity,
+          status: data.status
+        })
+      })
+    }
+
+    if (!res.ok) throw new Error(isEditing.value ? '更新失败' : '创建失败')
+
+    const task = await res.json()
+
+    if (isEditing.value) {
+      // 更新tasks列表中对应任务
+      const index = tasks.value.findIndex(t => t.taskId === data.taskId)
+      if (index >= 0) {
+        tasks.value[index] = {
+          ...task,
+          taskId: data.taskId,
+          planCode: data.planCode,
+          deviceCode: data.deviceCode,
+          status: data.status
+        }
+      }
+      ElMessage.success('任务更新成功')
+    } else {
+      tasks.value.push({
+        ...task,
+        taskId: `TASK-${String(task.id).padStart(4, '0')}`,
+        planCode: data.planCode,
+        deviceCode: data.deviceCode,
+        status: data.status || '待下发'
+      })
+      ElMessage.success('任务创建成功')
+    }
+
+    dialogVisible.value = false
+  } catch (err) {
+    console.error(err)
+    ElMessage.error(isEditing.value ? '任务更新失败' : '任务提交失败')
+  }
+}
+
+// 删除任务
+const deleteTask = async (task) => {
+  try {
+    await ElMessageBox.confirm(`确定要删除任务 ${task.taskId} 吗？`, '删除确认', {
+      confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning'
+    })
+    const id = parseInt(task.taskId.replace('TASK-', ''))
+    const res = await fetch(`http://localhost:8080/api/v1/production/tasks/${id}`, { method: 'DELETE' })
+    if (!res.ok) throw new Error('删除失败')
+
     tasks.value = tasks.value.filter(t => t.taskId !== task.taskId)
     ElMessage.success('任务删除成功')
-  }).catch(() => {})
+  } catch (err) {
+    if (err !== 'cancel') {
+      console.error('删除失败:', err)
+      ElMessage.error('删除失败')
+    }
+  }
 }
-</script>
 
-<style scoped>
-@import '@/assets/task-manager.css';
-</style>
+// 载入计划数据
+const loadPlans = async () => {
+  try {
+    const res = await fetch('http://localhost:8080/api/v1/production/plans?page=0&size=100')
+    if (!res.ok) throw new Error('获取计划失败')
+    const data = await res.json()
+
+    planMap.value = {}
+    reversePlanMap.value = {}
+    planOptions.value = []
+
+    data.content.forEach(plan => {
+      const cleanCode = plan.planCode.replace(/[^\w-]/g, '')
+      planMap.value[cleanCode] = plan.id
+      reversePlanMap.value[plan.id] = plan.planCode
+      planOptions.value.push({ label: plan.planCode, value: cleanCode })
+    })
+  } catch (err) {
+    console.error(err)
+    ElMessage.error(`加载计划失败: ${err.message}`)
+  }
+}
+
+// 载入设备数据
+const loadDevices = async () => {
+  try {
+    const res = await fetch('http://localhost:8080/api/v1/equipment/devices?page=0&size=100')
+    if (!res.ok) throw new Error('获取设备失败')
+    const data = await res.json()
+
+    deviceMap.value = {}
+    deviceOptions.value = []
+
+    data.content.forEach(device => {
+      deviceMap.value[device.deviceCode] = device.id
+      deviceOptions.value.push(device.deviceCode)
+    })
+  } catch (err) {
+    console.error(err)
+    ElMessage.error(`加载设备失败: ${err.message}`)
+  }
+}
+
+onMounted(async () => {
+  try {
+    await loadPlans()
+    await loadDevices()
+    await filterTasks()
+  } catch (err) {
+    console.error('初始化失败:', err)
+    ElMessage.error(`初始化失败: ${err.message}`)
+  }
+})
+</script>

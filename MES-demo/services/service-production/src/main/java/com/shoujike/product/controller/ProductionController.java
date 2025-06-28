@@ -48,13 +48,25 @@ public class ProductionController {
                 .body(convertToPlanDTO(plan));
     }
 
-    @PutMapping("/plans/{id}/status")
-    public ResponseEntity<Void> updatePlanStatus(
+    @PutMapping("/plans/{id}")
+    public ResponseEntity<Void> updatePlan(
             @PathVariable Integer id,
-            @RequestParam @NotBlank String status) throws EntityNotFoundException {
-
-        planService.updatePlanStatus(id, status);
-        return ResponseEntity.ok().build();
+            @RequestBody @Validated PlanUpdateRequest request) {
+        try {
+            planService.updatePlanFields(id, request);
+            return ResponseEntity.ok().build();
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();  // 返回 404
+        }
+    }
+    @DeleteMapping("/plans/{id}")
+    public ResponseEntity<Void> deletePlan(@PathVariable Integer id) {
+        boolean removed = planService.removeById(id);
+        if (removed) {
+            return ResponseEntity.ok().build();
+        } else {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @GetMapping("/plans")
@@ -85,6 +97,36 @@ public class ProductionController {
                 .body(convertToTaskDTO(task));
     }
 
+    @GetMapping("/plans/code-to-id")
+    public ResponseEntity<Integer> getPlanIdByCode(@RequestParam String code) {
+        ProductionPlan plan = planService.lambdaQuery()
+                .eq(ProductionPlan::getPlanCode, code)
+                .one();
+        return plan != null ? ResponseEntity.ok(plan.getId()) : ResponseEntity.notFound().build();
+    }
+    @GetMapping("/tasks")
+    public ResponseEntity<Page<TaskDTO>> getTasks(
+            @RequestParam(required = false) String planCode,
+            @RequestParam(required = false) String processType,
+            @RequestParam(required = false) String status,
+            @PageableDefault(size = 10, sort = "startTime", direction = Sort.Direction.DESC) Pageable pageable) {
+
+        Page<ProductionTask> taskPage = taskService.getTasksByConditions(planCode, processType, status, pageable);
+        return ResponseEntity.ok(taskPage.map(this::convertToDTO));
+    }
+
+
+
+    private TaskDTO convertToDTO(ProductionTask task) {
+        TaskDTO dto = new TaskDTO();
+        dto.setId(task.getId());
+        dto.setPlanId(task.getPlanId());
+        dto.setDeviceId(task.getDeviceId());
+        dto.setProcessType(task.getProcessType());
+        dto.setQuantity(task.getQuantity());
+        dto.setStatus(task.getStatus());
+        return dto;
+    }
 
     @PutMapping("/tasks/{id}/status")
     public ResponseEntity<Void> updateTaskStatus(
@@ -102,6 +144,13 @@ public class ProductionController {
         ProductionTask task = taskService.getTaskById(id); // 你自己实现获取逻辑
         return ResponseEntity.ok(convertToTaskDTO(task));
     }
+    @GetMapping("/plans/codes")
+    public ResponseEntity<List<String>> getAllPlanCodes() {
+        List<String> codes = planService.list().stream()
+                .map(ProductionPlan::getPlanCode)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(codes);
+    }
 
     @GetMapping("/plans/{planId}/tasks")
     public ResponseEntity<List<TaskDTO>> getTasksByPlan(@PathVariable Integer planId) {
@@ -109,6 +158,11 @@ public class ProductionController {
         return ResponseEntity.ok(tasks.stream()
                 .map(this::convertToTaskDTO)
                 .collect(Collectors.toList()));
+    }
+    @DeleteMapping("/tasks/{id}")
+    public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
+        taskService.deleteTaskById(id);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/devices/{deviceId}/tasks")

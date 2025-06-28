@@ -15,14 +15,15 @@
       status-icon
     >
       <el-form-item label="计划编号" prop="planCode">
-        <el-select v-model="form.planCode" placeholder="请选择计划编号" filterable>
-          <el-option
-            v-for="plan in planOptions"
-            :key="plan"
-            :label="plan"
-            :value="plan"
-          />
-        </el-select>
+       <el-select v-model="form.planCode" placeholder="请选择计划编号" filterable>
+  <el-option
+    v-for="plan in planOptions"
+    :key="plan.value"
+    :label="plan.label"
+    :value="plan.value"
+  />
+</el-select>
+
       </el-form-item>
 
       <el-form-item label="工序类型" prop="processType">
@@ -56,16 +57,7 @@
         />
       </el-form-item>
 
-      <el-form-item label="任务描述" prop="description">
-        <el-input
-          type="textarea"
-          v-model="form.description"
-          :rows="3"
-          placeholder="请输入任务描述"
-          maxlength="200"
-          show-word-limit
-        />
-      </el-form-item>
+      
     </el-form>
 
     <template #footer>
@@ -92,10 +84,7 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
-  deviceOptions: {
-    type: Array,
-    default: () => []
-  },
+  
   isEditing: Boolean,
 })
 
@@ -109,7 +98,7 @@ const form = reactive({
   processType: '',
   deviceCode: '',
   quantity: 1,
-  description: ''
+
 })
 
 const rules = {
@@ -117,7 +106,7 @@ const rules = {
   processType: [{ required: true, message: '请选择工序类型', trigger: 'change' }],
   deviceCode: [{ required: true, message: '请选择设备编号', trigger: 'change' }],
   quantity: [{ required: true, message: '请输入任务数量', trigger: 'blur' }],
-  description: [{ required: false }],
+  
 }
 
 // 监听外部传入 modelValue（用于编辑）
@@ -143,7 +132,7 @@ function resetForm() {
     processType: '',
     deviceCode: '',
     quantity: 1,
-    description: ''
+   
   })
 }
 

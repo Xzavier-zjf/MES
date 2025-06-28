@@ -12,7 +12,7 @@ public class MyBatisPlusConfig {
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
         // 这里替换成你的数据库类型，比如 MYSQL、POSTGRE_SQL 等
-        interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
+       interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
         return interceptor;
     }
 }

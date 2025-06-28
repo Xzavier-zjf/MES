@@ -44,6 +44,7 @@
           @change="fetchPlans"
         >
           <el-option label="草稿" value="草稿" />
+            <el-option label="待下发" value="待下发" />
           <el-option label="已下发" value="已下发" />
           <el-option label="进行中" value="进行中" />
           <el-option label="已完成" value="已完成" />
@@ -60,13 +61,14 @@
         <el-table-column prop="planCode" label="计划编号" width="150" />
         <el-table-column prop="productName" label="产品名称" width="200" />
         <el-table-column prop="totalQuantity" label="生产数量" width="120" />
-        <el-table-column prop="priority" label="优先级" width="100">
+        <el-table-column label="优先级" width="100">
           <template #default="scope">
             <el-tag :type="priorityTagType(scope.row.priority)">
-              {{ convertPriority(scope.row.priority) }}
+              {{ scope.row.priorityText }}
             </el-tag>
           </template>
         </el-table-column>
+
         <el-table-column prop="status" label="状态" width="120">
           <template #default="scope">
             <el-tag :type="statusTagType(scope.row.status)">
@@ -115,14 +117,15 @@
         </el-form-item>
         <el-form-item label="优先级">
           <el-select v-model="form.priority" placeholder="请选择">
-            <el-option label="高" value="1" />
-            <el-option label="中" value="2" />
-            <el-option label="低" value="3" />
+            <el-option label="高" value="高" />
+            <el-option label="中" value="中" />
+            <el-option label="低" value="低" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="form.status" placeholder="请选择">
             <el-option label="草稿" value="草稿" />
+             <el-option label="待下发" value="待下发" />
             <el-option label="已下发" value="已下发" />
             <el-option label="进行中" value="进行中" />
             <el-option label="已完成" value="已完成" />
@@ -143,6 +146,18 @@
 import { ref, computed, onMounted } from 'vue'
 import dayjs from 'dayjs'
 
+// 优先级映射：文字 <-> 数字
+const priorityMap = {
+  高: 1,
+  中: 2,
+  低: 3,
+}
+const reversePriorityMap = {
+  1: '高',
+  2: '中',
+  3: '低',
+}
+
 const dialogVisible = ref(false)
 const isEditMode = ref(false)
 const plans = ref([])
@@ -155,7 +170,7 @@ const form = ref({
   productName: '',
   totalQuantity: 0,
   status: '',
-  priority: '',
+  priority: '', // 文字，如“高”
 })
 
 const filter = ref({
@@ -178,18 +193,21 @@ const fetchPlans = async () => {
       query += `&status=${filter.value.status}`
     }
     if (filter.value.keyword) {
-      // 后端如果支持模糊搜索，可以加 keyword 参数，否则去掉或改成对应参数名
       query += `&keyword=${encodeURIComponent(filter.value.keyword)}`
     }
     const res = await fetch(`http://localhost:8080/api/v1/production/plans${query}`)
     const data = await res.json()
 
-    // 赋值时转换优先级和时间格式，方便展示
-    plans.value = data.content.map(item => ({
-      ...item,
-      priority: item.priority,
-      createTime: item.createTime,
-    }))
+    plans.value = data.content.map(item => {
+      // 确保 priority 是数字，再映射文字
+      const priorityNum = Number(item.priority)
+      return {
+        ...item,
+        priority: priorityNum,
+        priorityText: reversePriorityMap[priorityNum] || `未知(${item.priority})`,
+        createTime: item.createTime,
+      }
+    })
     total.value = data.totalElements
   } catch (err) {
     console.error('加载计划失败', err)
@@ -218,14 +236,21 @@ const openDialog = () => {
     productName: '',
     totalQuantity: 0,
     status: '',
-    priority: '',
+    priority: '', // 文字，如“高”
   }
   dialogVisible.value = true
 }
 
 const editPlan = (row) => {
   isEditMode.value = true
-  form.value = { ...row }
+  form.value = {
+    id: row.id,
+    planCode: row.planCode,
+    productName: row.productName,
+    totalQuantity: row.totalQuantity,
+    priority: reversePriorityMap[row.priority] || '',
+    status: row.status,
+  }
   dialogVisible.value = true
 }
 
@@ -238,13 +263,27 @@ const submitForm = async () => {
     form.value.priority
   ) {
     try {
-      const response = await fetch('http://localhost:8080/api/v1/production/plans', {
-        method: 'POST',
+      const url = isEditMode.value
+        ? `http://localhost:8080/api/v1/production/plans/${form.value.id}`
+        : 'http://localhost:8080/api/v1/production/plans'
+
+      const method = isEditMode.value ? 'PUT' : 'POST'
+
+      const payload = {
+        planCode: form.value.planCode,
+        productName: form.value.productName,
+        totalQuantity: Number(form.value.totalQuantity),
+        status: form.value.status,
+        priority: priorityMap[form.value.priority], // 文字转数字
+      }
+
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form.value)
+        body: JSON.stringify(payload),
       })
 
-      if (!response.ok) throw new Error('添加失败')
+      if (!response.ok) throw new Error(isEditMode.value ? '修改失败' : '添加失败')
 
       dialogVisible.value = false
       fetchPlans()
@@ -257,36 +296,52 @@ const submitForm = async () => {
   }
 }
 
-const deletePlan = (row) => {
-  // 这里最好调用后端删除接口，删除成功后刷新列表
-  plans.value = plans.value.filter(p => p.planCode !== row.planCode)
+const deletePlan = async (row) => {
+  if (!confirm(`确定要删除计划 ${row.planCode} 吗？`)) return
+
+  try {
+    const response = await fetch(`http://localhost:8080/api/v1/production/plans/${row.id}`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) throw new Error('删除失败')
+
+    fetchPlans()
+  } catch (err) {
+    console.error('删除失败', err)
+    alert('删除失败，请检查后端接口或网络')
+  }
 }
 
 const statusTagType = (status) => {
   switch (status) {
-    case '草稿': return 'info'
-    case '已下发': return 'success'
-    case '进行中': return 'warning'
-    case '已完成': return 'primary'
-    default: return ''
+    case '草稿':
+      return 'info'
+    case '待下发':
+      return 'warning'   // 给“待下发”一个醒目的颜色（也可以换）
+    case '已下发':
+      return 'success'
+    case '进行中':
+      return 'primary'
+    case '已完成':
+      return 'success'
+    default:
+      return ''
   }
 }
+
 
 const priorityTagType = (priority) => {
+  // priority 这里是数字
   switch (priority) {
-    case '1': return 'success'
-    case '2': return 'warning'
-    case '3': return 'info'
-    default: return ''
-  }
-}
-
-const convertPriority = (val) => {
-  switch (val) {
-    case '1': return '高'
-    case '2': return '中'
-    case '3': return '低'
-    default: return val
+    case 1:
+      return 'success' // 高-绿色
+    case 2:
+      return 'warning' // 中-黄色
+    case 3:
+      return 'info' // 低-蓝色
+    default:
+      return ''
   }
 }
 
@@ -295,12 +350,12 @@ const formatDate = (dateStr) => {
 }
 
 const filteredPlans = computed(() => {
-  // 关键字过滤：计划编号和产品名称
   if (!filter.value.keyword) return plans.value
   const kw = filter.value.keyword.toLowerCase()
-  return plans.value.filter(plan => 
-    (plan.planCode && plan.planCode.toLowerCase().includes(kw)) ||
-    (plan.productName && plan.productName.toLowerCase().includes(kw))
+  return plans.value.filter(
+    (plan) =>
+      (plan.planCode && plan.planCode.toLowerCase().includes(kw)) ||
+      (plan.productName && plan.productName.toLowerCase().includes(kw))
   )
 })
 </script>

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.shoujike.common.exception.EntityNotFoundException;
 import com.shoujike.product.model.DTO.PlanCreateDTO;
+import com.shoujike.product.model.DTO.PlanUpdateRequest;
 import com.shoujike.product.model.DTO.TaskCreateDTO;
 import com.shoujike.product.model.entity.ProductionPlan;
 import com.shoujike.product.model.entity.ProductionTask;
@@ -35,27 +36,24 @@ public class ProductionPlanService extends ServiceImpl<ProductionPlanMapper, Pro
 
         // 保存计划
         save(plan);
-
-        // 创建关联任务
-//        List<ProductionTask> tasks = createDTO.getTasks().stream()
-//                .map(dto -> convertToTaskEntity(dto, plan.getId()))
-//                .collect(Collectors.toList());
-//
-//        taskService.saveBatch(tasks);
-
         return plan;
     }
 
-    public void updatePlanStatus(Integer id, String status) throws EntityNotFoundException {
+    public void updatePlanFields(Integer id, PlanUpdateRequest updateRequest) throws EntityNotFoundException {
         ProductionPlan plan = getById(id);
         if (plan == null) {
             throw new EntityNotFoundException("生产计划不存在");
         }
 
-        // 状态流转校验...
-        plan.setStatus(status);
+        // 只更新非 planCode 字段
+        plan.setProductName(updateRequest.getProductName());
+        plan.setTotalQuantity(updateRequest.getTotalQuantity());
+        plan.setStatus(updateRequest.getStatus());
+        plan.setPriority(updateRequest.getPriority());
+
         updateById(plan);
     }
+
 
     public Page<ProductionPlan> getPlansByStatus(String status, Pageable pageable) {
         LambdaQueryWrapper<ProductionPlan> wrapper = new LambdaQueryWrapper<>();
@@ -95,6 +93,8 @@ public class ProductionPlanService extends ServiceImpl<ProductionPlanMapper, Pro
         plan.setProductName(dto.getProductName());
         plan.setTotalQuantity(dto.getTotalQuantity());
         plan.setCreateTime(LocalDateTime.now());
+        plan.setStatus(dto.getStatus());
+        plan.setPriority(dto.getPriority());
         return plan;
     }
 
