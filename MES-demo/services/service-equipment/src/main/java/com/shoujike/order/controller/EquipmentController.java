@@ -37,9 +37,11 @@ public class EquipmentController {
     @GetMapping("/devices")
     public ResponseEntity<Page<DeviceDTO>> listDevices(
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String name, // 新增：接收 name 参数
             @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
 
-        return ResponseEntity.ok(deviceService.listDevices(status, pageable));
+        // 将 name 传递给服务层
+        return ResponseEntity.ok(deviceService.listDevices(status, name, pageable));
     }
 
     @GetMapping("/devices/{id}")

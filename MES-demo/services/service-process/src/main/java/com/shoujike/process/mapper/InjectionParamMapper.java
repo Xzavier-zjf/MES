@@ -10,5 +10,5 @@ import org.apache.ibatis.annotations.Select;
 public interface InjectionParamMapper extends BaseMapper<InjectionParam> {
 
     @Select("SELECT * FROM injection_param WHERE task_id = #{taskId}")
-    InjectionParam findByTaskId(@Param("taskId") Integer taskId);
+    InjectionParam findByTaskId(@Param("taskId") String taskId);
 }

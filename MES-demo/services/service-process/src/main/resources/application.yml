@@ -10,12 +10,16 @@ spring:
         enabled: true # ??????
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:12345/mes?useSSL=false&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://localhost:3306/process_service_db?useSSL=false&serverTimezone=Asia/Shanghai
     username: root
     password: 123456
     hikari:
       maximum-pool-size: 15
       minimum-idle: 5
+  servlet:
+    multipart:
+      max-file-size=5MB
+      max-request-size=10MB
 server:
   port: 7000
   error:
@@ -27,3 +31,6 @@ mybatis-plus:
     map-underscore-to-camel-case: true # ??????
   mapper-locations: classpath*:/com.shoujike.process.mapper/**/*.xml # XML??????
   type-aliases-package: com.shoujike.product.entity # ??????
+file:
+  upload:
+    dir: /opt/uploads/patterns/  # 新增文件存储配置

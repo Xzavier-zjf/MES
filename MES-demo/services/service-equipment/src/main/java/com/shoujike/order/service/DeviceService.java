@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 
 public interface DeviceService {
     DeviceDTO createDevice(DeviceCreateDTO createDTO);
-    Page<DeviceDTO> listDevices(String status, Pageable pageable);
+    Page<DeviceDTO> listDevices(String status, String name,Pageable pageable);
     DeviceDTO getDeviceById(Integer id) throws EntityNotFoundException;
     void updateDeviceStatus(Integer id, String status) throws EntityNotFoundException, BusinessException;
     void updateRuntimeData(Integer id, Integer addedMinutes, Integer addedCycles) throws EntityNotFoundException;

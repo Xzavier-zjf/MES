@@ -10,6 +10,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 public interface ProductionTaskClient {
 
     @GetMapping("/api/v1/production/tasks/{taskId}")
-    ResponseEntity<TaskDTO> getTaskById(@PathVariable("taskId") Integer taskId);
+    ResponseEntity<TaskDTO> getTaskById(@PathVariable("taskId") String taskId);
 }
 

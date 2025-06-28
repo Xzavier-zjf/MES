@@ -17,8 +17,14 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import com.shoujike.process.service.PrintPatternService;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -136,5 +142,20 @@ public class PrintPatternServiceImpl implements PrintPatternService {
 
     private PrintPatternDTO convertToDTO(PrintPattern pattern) {
         return objectMapper.convertValue(pattern, PrintPatternDTO.class);
+    }
+
+    public String storeImage(MultipartFile file) throws BusinessException {
+        try {
+            String uploadDir = "/opt/uploads/patterns/";  // 建议通过配置注入
+            String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
+            Path filePath = Paths.get(uploadDir + fileName);
+
+            Files.createDirectories(filePath.getParent());
+            file.transferTo(filePath);
+
+            return "/uploads/patterns/" + fileName;  // 返回访问路径
+        } catch (IOException e) {
+            throw new BusinessException("文件上传失败: " + e.getMessage());
+        }
     }
 }

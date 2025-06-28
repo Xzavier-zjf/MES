@@ -3,13 +3,19 @@ package com.shoujike.order.model.DTO;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 @Data
 public class DeviceCreateDTO {
-    @NotBlank(message = "设备编号不能为空")
+    private Integer id;
     private String deviceCode;
-
-    @NotBlank(message = "设备名称不能为空")
     private String name;
-
     private String status;
+    private Integer runtimeMinutes;
+    private Integer openCloseTimes;
+    private LocalDateTime lastMaintenanceTime;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private Float injectionTime;
+    private Float injectionPressure;
 }

@@ -19,7 +19,9 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import com.shoujike.process.service.InjectionParamService;
 import com.shoujike.process.service.PrintPatternService;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -56,7 +58,11 @@ public class ProcessController {
         }
     }
 
-
+    @GetMapping("/injection-params/all")
+    public ResponseEntity<Page<InjectionParamDTO>> getAllInjectionParams(
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(injectionParamService.getAllInjectionParams(pageable));
+    }
 
     @PutMapping("/injection-params/{id}")
     public ResponseEntity<InjectionParamDTO> updateInjectionParam(
@@ -71,7 +77,7 @@ public class ProcessController {
     }
 
     @GetMapping("/injection-params/task/{taskId}")
-    public ResponseEntity<InjectionParamDTO> getInjectionParamByTaskId(@PathVariable Integer taskId) throws EntityNotFoundException {
+    public ResponseEntity<InjectionParamDTO> getInjectionParamByTaskId(@PathVariable String taskId) throws EntityNotFoundException {
         return ResponseEntity.ok(injectionParamService.getInjectionParamByTaskId(taskId));
     }
 
@@ -84,11 +90,16 @@ public class ProcessController {
     // ================ 印刷图案管理 ================
     @PostMapping("/print-patterns")
     public ResponseEntity<PrintPatternDTO> createPrintPattern(
-            @Valid @RequestBody PrintPatternCreateDTO createDTO) throws BusinessException {
+            @Valid @ModelAttribute PrintPatternCreateDTO createDTO,  // 改为@ModelAttribute接收表单数据
+            @RequestPart("image") MultipartFile imageFile) throws BusinessException {
+
+        // 调用新增的文件存储逻辑
+        String imageUrl = printPatternService.storeImage(imageFile);
+        createDTO.setImageUrl(imageUrl);
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(printPatternService.createPrintPattern(createDTO));
     }
-
     @PutMapping("/print-patterns/{id}")
     public ResponseEntity<PrintPatternDTO> updatePrintPattern(
             @PathVariable Integer id,

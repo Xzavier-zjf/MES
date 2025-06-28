@@ -7,11 +7,11 @@
     @update:model-value="emit('update:visible', $event)"
   >
     <el-descriptions :column="1" border>
-      <el-descriptions-item label="设备编号">{{ device?.id }}</el-descriptions-item>
-      <el-descriptions-item label="设备类型">{{ device?.type }}</el-descriptions-item>
-      <el-descriptions-item label="使用时长">{{ device?.usageHours }} 小时</el-descriptions-item>
-      <el-descriptions-item label="注塑压力">{{ device?.pressure }} MPa</el-descriptions-item>
-      <el-descriptions-item label="开启次数">{{ device?.openTimes }}</el-descriptions-item>
+      <el-descriptions-item label="设备编号">{{ device?.deviceCode }}</el-descriptions-item>
+      <el-descriptions-item label="设备类型">{{ device?.name }}</el-descriptions-item>
+      <el-descriptions-item label="使用时长">{{ device?.runtimeMinutes }} 小时</el-descriptions-item>
+      <el-descriptions-item label="注塑压力">{{ device?.injectionPressure }} MPa</el-descriptions-item>
+      <el-descriptions-item label="开启次数">{{ device?.openCloseTimes }}</el-descriptions-item>
       <el-descriptions-item label="注塑时间">{{ device?.injectionTime }} 秒</el-descriptions-item>
     </el-descriptions>
 
@@ -36,6 +36,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
+import { ElMessage } from 'element-plus'  // 添加这行导入
 
 const props = defineProps({
   visible: Boolean,
@@ -56,8 +57,29 @@ const handleClose = () => {
   emit('update:visible', false)
 }
 
-const saveStatus = () => {
-  emit('updateStatus', editableStatus.value)
-  emit('update:visible', false)
+const saveStatus = async () => {
+  try {
+    const response = await fetch(`http://localhost:8080/api/v1/equipment/devices/${props.device.id}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        status: editableStatus.value
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error('更新状态失败')
+    }
+
+    emit('updateStatus', editableStatus.value)
+    emit('update:visible', false)
+    ElMessage.success('状态更新成功')  // 确保这里使用了导入的ElMessage
+    emit('filterDevices')
+  } catch (error) {
+    console.error('更新状态错误:', error)
+    ElMessage.error('状态更新失败')  // 确保这里使用了导入的ElMessage
+  }
 }
 </script>

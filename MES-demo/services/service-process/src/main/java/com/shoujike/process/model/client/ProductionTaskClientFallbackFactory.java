@@ -17,7 +17,7 @@ public class ProductionTaskClientFallbackFactory implements FallbackFactory<Prod
     public ProductionTaskClient create(Throwable cause) {
         return new ProductionTaskClient() {
             @Override
-            public ResponseEntity<TaskDTO> getTaskById(Integer id) {
+            public ResponseEntity<TaskDTO> getTaskById(String taskId) {
                 log.error(() ->"调用生产服务获取任务失败: {}", cause);
                 return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
             }

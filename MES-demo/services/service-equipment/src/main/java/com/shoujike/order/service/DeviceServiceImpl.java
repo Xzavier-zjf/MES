@@ -14,10 +14,7 @@ import com.shoujike.order.model.client.ProductionTaskClient;
 import com.shoujike.order.model.entity.Device;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -43,15 +40,21 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         Device device = new Device();
         device.setDeviceCode(createDTO.getDeviceCode());
         device.setName(createDTO.getName());
-        device.setStatus(StringUtils.isNotBlank(createDTO.getStatus()) ?
-                createDTO.getStatus() : "闲置");
+        device.setStatus(StringUtils.isNotBlank(createDTO.getStatus()) ? createDTO.getStatus() : "闲置");
+
+        // 为所有字段赋值
+        device.setInjectionTime(createDTO.getInjectionTime() != null ? createDTO.getInjectionTime() : 0);
+        device.setInjectionPressure(createDTO.getInjectionPressure() != null ? createDTO.getInjectionPressure() : 0.0f);
+        device.setRuntimeMinutes(createDTO.getRuntimeMinutes() != null ? createDTO.getRuntimeMinutes() : 0);
+        device.setOpenCloseTimes(createDTO.getOpenCloseTimes() != null ? createDTO.getOpenCloseTimes() : 0);
+        device.setLastMaintenanceTime(createDTO.getLastMaintenanceTime() != null ? createDTO.getLastMaintenanceTime() : null);
 
         save(device);
         return convertToDTO(device);
     }
 
     @Override
-    public Page<DeviceDTO> listDevices(String status, Pageable pageable) {
+    public Page<DeviceDTO> listDevices(String status, String name, Pageable pageable) {
         // 创建 MyBatis-Plus 的 Page 对象
         com.baomidou.mybatisplus.extension.plugins.pagination.Page<Device> mpPage =
                 new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(
@@ -60,10 +63,23 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
                 );
 
         LambdaQueryWrapper<Device> wrapper = new LambdaQueryWrapper<>();
+
+        // 状态筛选
         if (StringUtils.isNotBlank(status)) {
             wrapper.eq(Device::getStatus, status);
         }
-        wrapper.orderByAsc(Device::getName);
+
+        // 新增：名称模糊筛选
+        if (StringUtils.isNotBlank(name)) {
+            wrapper.like(Device::getName, name);
+        }
+
+        // 修复：使用 Pageable 的排序而不是固定排序
+        pageable.getSort().forEach(order -> {
+            String property = order.getProperty();
+            Sort.Direction direction = order.getDirection();
+
+        });
 
         // 使用 MP 的 page 方法
         com.baomidou.mybatisplus.extension.plugins.pagination.Page<Device> devicePage = page(mpPage, wrapper);
@@ -77,7 +93,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         // 创建 Spring Data Page 对象返回
         return new PageImpl<>(
                 dtoList,
-                PageRequest.of((int) (devicePage.getCurrent() - 1), (int) devicePage.getSize()), // 转换回 Spring Data 分页
+                PageRequest.of((int) (devicePage.getCurrent() - 1), (int) devicePage.getSize(), pageable.getSort()),
                 devicePage.getTotal()
         );
     }

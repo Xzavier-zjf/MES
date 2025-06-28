@@ -6,7 +6,13 @@ import lombok.Data;
 @Data
 public class InjectionParamCreateDTO {
     @NotNull(message = "任务ID不能为空")
-    private Integer taskId;
+    private String taskId;
+
+    @NotNull(message = "任务ID不能为空")
+    private String planCode;
+
+    @NotNull(message = "设备ID不能为空")
+    private String deviceId;
 
     @NotNull(message = "注塑压力不能为空")
     private Float pressure;

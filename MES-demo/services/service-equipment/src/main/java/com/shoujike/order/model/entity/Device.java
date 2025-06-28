@@ -20,4 +20,6 @@ public class Device {
     private LocalDateTime lastMaintenanceTime;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Float injectionTime;
+    private Float injectionPressure;
 }

@@ -25,11 +25,14 @@
 
 
     <!-- 筛选组件 -->
-    <DeviceFilter
-      :filters="filters"
-      @filter="filterDevices"
-      @reset="resetFilters"
-    />
+    <div class="filter-add-wrapper">
+      <DeviceFilter
+        :filters="filters"
+        @filter="filterDevices"
+        @reset="resetFilters"
+        @create="openAddDeviceDialog"
+      />
+    </div>
 
 
     <!-- 设备展示卡片 -->
@@ -42,13 +45,14 @@
       />
     </div>
 
+
     <!-- 设备详情弹窗 -->
     <DeviceDetailDialog
-
-  v-model:visible="detailVisible"
-  :device="selectedDevice"
-  @updateStatus="updateDeviceStatus"
-/>
+      v-model:visible="detailVisible"
+      :device="selectedDevice"
+      @updateStatus="updateDeviceStatus"
+      @filterDevices="filterDevices"  
+    />
 
 
     <!-- 新增设备弹窗 -->
@@ -63,13 +67,13 @@
           label="设备编号"
           :rules="[{ required: true, message: '请输入设备编号', trigger: 'blur' }]"
         >
-          <el-input v-model="newDevice.id" autocomplete="off" />
+          <el-input v-model="newDevice.deviceCode" autocomplete="off" />
         </el-form-item>
         <el-form-item
           label="设备类型"
           :rules="[{ required: true, message: '请输入设备类型', trigger: 'blur' }]"
         >
-          <el-input v-model="newDevice.type" autocomplete="off" />
+          <el-input v-model="newDevice.name" autocomplete="off" />
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="newDevice.status" placeholder="请选择">
@@ -79,13 +83,13 @@
           </el-select>
         </el-form-item>
         <el-form-item label="使用时长（小时）">
-          <el-input-number v-model="newDevice.usageHours" :min="0" />
+          <el-input-number v-model="newDevice.runtimeMinutes" :min="0" />
         </el-form-item>
         <el-form-item label="注塑压力 (MPa)">
-          <el-input-number v-model="newDevice.pressure" :min="0" />
+          <el-input-number v-model="newDevice.injectionPressure" :min="0" />
         </el-form-item>
         <el-form-item label="开启次数">
-          <el-input-number v-model="newDevice.openTimes" :min="0" />
+          <el-input-number v-model="newDevice.openCloseTimes" :min="0" />
         </el-form-item>
         <el-form-item label="注塑时间 (秒)">
           <el-input-number v-model="newDevice.injectionTime" :min="0" />
@@ -101,11 +105,12 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue' // 添加onMounted导入
 import { useRouter } from 'vue-router'
 import DeviceFilter from '@/components/DeviceFilter.vue'
 import DeviceCard from '@/components/DeviceCard.vue'
 import DeviceDetailDialog from '@/components/DeviceDetailDialog.vue'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const go = (path) => {
@@ -118,37 +123,82 @@ const devices = ref([
   { id: 'D003', type: '注塑机', status: '空闲', usageHours: 0, pressure: 0, openTimes: 0, injectionTime: 0 },
 ])
 
-const filters = ref({ type: '', status: '' })
+const filters = ref({ name: '', status: '' })  
 
-const filteredDevices = computed(() =>
-  devices.value.filter(d =>
-    (!filters.value.type || d.type === filters.value.type) &&
-    (!filters.value.status || d.status === filters.value.status)
-  )
-)
+const filteredDevices = ref([])
+
+const fetchFilteredDevices = async () => {
+  try {
+    let url = 'http://localhost:8080/api/v1/equipment/devices?'
+    if (filters.value.name) url += `name=${encodeURIComponent(filters.value.name)}&`
+    if (filters.value.status) url += `status=${filters.value.status}`
+    
+    const response = await fetch(url)
+    if (!response.ok) throw new Error('获取设备列表失败')
+    
+    const data = await response.json()
+    filteredDevices.value = data.content || data
+  } catch (error) {
+    console.error('过滤设备错误:', error)
+    ElMessage.error('获取设备列表失败')
+    // 回退到本地数据
+    filteredDevices.value = devices.value.filter(d =>
+      (!filters.value.name || d.type.includes(filters.value.name)) &&
+      (!filters.value.status || d.status === filters.value.status)
+    )
+  }
+}
+
+// 在filterDevices和resetFilters中调用fetchFilteredDevices
+const filterDevices = () => {
+  fetchFilteredDevices()
+  console.log('筛选操作已触发') // 调试用，确认方法被调用
+}
+
+const resetFilters = () => {
+  filters.value = { name: '', status: '' }
+  fetchFilteredDevices()
+}
 
 const detailVisible = ref(false)
 const selectedDevice = ref(null)
 
-const viewDetail = (device) => {
-  selectedDevice.value = device
-  detailVisible.value = true
+const viewDetail = async (device) => {
+  try {
+    const response = await fetch(`http://localhost:8080/api/v1/equipment/devices/${device.id}`)
+    if (!response.ok) {
+      throw new Error('获取设备详情失败')
+    }
+    selectedDevice.value = await response.json()
+    detailVisible.value = true
+  } catch (error) {
+    console.error('获取设备详情错误:', error)
+    ElMessage.error('获取设备详情失败')
+    // 失败时使用本地数据作为回退
+    selectedDevice.value = device
+    detailVisible.value = true
+  }
 }
 
-const filterDevices = () => {}
-const resetFilters = () => {
-  filters.value = { type: '', status: '' }
-}
+onMounted(() => {
+  fetchFilteredDevices() // 页面加载时获取所有设备并筛选
+})
+
+// 删除下面重复的声明
+// const filterDevices = () => {}
+// const resetFilters = () => {
+//   filters.value = { type: '', status: '' }
+// }
 
 // 新增设备弹窗相关
 const addDeviceDialogVisible = ref(false)
 const newDevice = ref({
-  id: '',
-  type: '',
+  deviceCode: '',
+  name: '',
   status: '空闲',
-  usageHours: 0,
-  pressure: 0,
-  openTimes: 0,
+  runtimeMinutes: 0,
+  injectionPressure: 0,
+  openCloseTimes: 0,
   injectionTime: 0,
 })
 
@@ -164,27 +214,42 @@ const handleBeforeClose = (done) => {
   done()
 }
 
-const addDevice = () => {
-  if (!newDevice.value.id || !newDevice.value.type) {
-    alert('设备编号和设备类型不能为空！')
+const addDevice = async () => {
+  if (!newDevice.value.deviceCode || !newDevice.value.name) {
+    ElMessage.error('设备编号和设备类型不能为空！')
     return
   }
-  const exists = devices.value.some(d => d.id === newDevice.value.id)
-  if (exists) {
-    alert('设备编号已存在，请更换！')
-    return
-  }
+  
+  try {
+    const response = await fetch('http://localhost:8080/api/v1/equipment/devices', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(newDevice.value)
+    })
 
-  devices.value.push({ ...newDevice.value })
-  closeAddDeviceDialog()
-  newDevice.value = {
-    id: '',
-    type: '',
-    status: '空闲',
-    usageHours: 0,
-    pressure: 0,
-    openTimes: 0,
-    injectionTime: 0,
+    if (!response.ok) {
+      throw new Error('添加设备失败')
+    }
+
+    const data = await response.json()
+    devices.value.push(data)
+    ElMessage.success('设备添加成功')
+    closeAddDeviceDialog()
+    newDevice.value = {
+        deviceCode: '',
+        name: '',
+        status: '空闲',
+        runtimeMinutes: 0,
+        injectionPressure: 0,
+        openCloseTimes: 0,
+        injectionTime: 0,
+    }
+    filterDevices()
+  } catch (error) {
+    console.error('添加设备错误:', error)
+    ElMessage.error(error.message || '添加设备失败')
   }
 }
 const updateDeviceStatus = (newStatus) => {
@@ -193,11 +258,13 @@ const updateDeviceStatus = (newStatus) => {
     const index = devices.value.findIndex(d => d.id === selectedDevice.value.id)
     if (index !== -1) {
       devices.value[index].status = newStatus
-      selectedDevice.value.status = newStatus // 保持详情数据一致
+      selectedDevice.value.status = newStatus
+      // 强制更新filteredDevices以触发重新渲染
+      filteredDevices.value = [...filteredDevices.value]
     }
   }
 }
-
+  
 
 </script>
 
@@ -273,13 +340,28 @@ const updateDeviceStatus = (newStatus) => {
   background-color: #4caf50dd;
 }
 
-/* 筛选组件和新增设备按钮同一行 */
-.filter-add-wrapper {
-  display: flex;
-  justify-content: flex-start;
+
+.add-device-btn {
+  height: 32px;
+  padding: 0 16px;
+  margin-top: 0; /* 确保没有上边距 */
+  font-size: 14px;
+  border-radius: 4px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  vertical-align: top; /* 确保顶部对齐 */
+}
+
+.add-device-btn:hover {
+  background-color: #3e8e41;
+}
+.add-device-btn:hover {
+  border-color: #3e8e41;
 }
 
 

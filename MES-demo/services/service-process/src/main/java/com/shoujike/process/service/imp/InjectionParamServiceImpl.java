@@ -1,10 +1,13 @@
 package com.shoujike.process.service.imp;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shoujike.common.exception.BusinessException;
 import com.shoujike.common.exception.EntityNotFoundException;
 
 import com.shoujike.process.model.client.ProductionTaskClient;
+import com.shoujike.process.model.dto.PrintPatternDTO;
+import com.shoujike.process.model.entity.PrintPattern;
 import com.shoujike.product.model.DTO.TaskDTO;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -13,9 +16,16 @@ import com.shoujike.process.model.dto.InjectionParamCreateDTO;
 import com.shoujike.process.model.dto.InjectionParamDTO;
 import com.shoujike.process.model.entity.InjectionParam;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import com.shoujike.process.service.InjectionParamService;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor(onConstructor = @__(@Autowired))
@@ -79,7 +89,7 @@ public class InjectionParamServiceImpl implements InjectionParamService {
     }
 
     @Override
-    public InjectionParamDTO getInjectionParamByTaskId(Integer taskId) throws EntityNotFoundException {
+    public InjectionParamDTO getInjectionParamByTaskId(String taskId) throws EntityNotFoundException {
         InjectionParam param = injectionParamMapper.findByTaskId(taskId);
         if (param == null) {
             throw new EntityNotFoundException("该任务未设置工艺参数");
@@ -99,7 +109,7 @@ public class InjectionParamServiceImpl implements InjectionParamService {
         return objectMapper.convertValue(param, InjectionParamDTO.class);
     }
 
-    private void verifyTaskExists(Integer taskId) throws BusinessException {
+    private void verifyTaskExists(String taskId) throws BusinessException {
         try {
             ResponseEntity<TaskDTO> response = productionTaskClient.getTaskById(taskId);
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
@@ -110,5 +120,30 @@ public class InjectionParamServiceImpl implements InjectionParamService {
             throw new BusinessException("验证任务时出错: " + msg);
         }
     }
+    @Override
+    public Page<InjectionParamDTO> getAllInjectionParams(Pageable pageable) {
+        // 处理分页转换（MP页码从1开始）
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<InjectionParam> mpPage =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(
+                        pageable.getPageNumber() + 1,
+                        pageable.getPageSize()
+                );
 
+        QueryWrapper<InjectionParam> wrapper = new QueryWrapper<>();
+        wrapper.orderByDesc("id");
+
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<InjectionParam> mpResult =
+                injectionParamMapper.selectPage(mpPage, wrapper);
+
+        List<InjectionParamDTO> dtoList = mpResult.getRecords()
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(
+                dtoList,
+                PageRequest.of((int)mpResult.getCurrent() - 1, (int)mpResult.getSize()),
+                mpResult.getTotal()
+        );
+    }
 }

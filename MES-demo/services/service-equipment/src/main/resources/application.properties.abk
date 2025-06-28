@@ -1,5 +1,6 @@
-spring.application.name=service-order
+spring.application.name=service-equipment
 server.port=8000
 
-#spring.cloud.nacos.server-addr=47.113.100.93:8848
-spring.cloud.nacos.server-addr=127.0.0.1:8848
+spring.cloud.nacos.discovery.server-addr=47.113.100.93:8848
+spring.cloud.nacos.discovery.namespace=public
+#spring.cloud.nacos.server-addr=127.0.0.1:8848
