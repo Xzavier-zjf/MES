@@ -84,7 +84,10 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
-  
+    deviceOptions: {
+    type: Array,
+    default: () => []
+  },
   isEditing: Boolean,
 })
 
