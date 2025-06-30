@@ -17,7 +17,7 @@ public class InjectionParam {
 
     @TableField("task_id")
     private String taskId;
-
+    @TableField("device_id")
     private String deviceId;
 
     private Float pressure;

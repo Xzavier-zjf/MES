@@ -4,7 +4,7 @@ import com.shoujike.common.exception.BusinessException;
 import com.shoujike.common.exception.EntityNotFoundException;
 import com.shoujike.process.model.dto.InjectionParamCreateDTO;
 import com.shoujike.process.model.dto.InjectionParamDTO;
-import com.shoujike.process.model.dto.PrintPatternDTO;
+import com.shoujike.product.model.DTO.InjectionTaskInfoDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -17,4 +17,8 @@ public interface InjectionParamService {
     InjectionParamDTO getInjectionParamByTaskId(String taskId) throws EntityNotFoundException;
     void deleteInjectionParam(Integer id) throws EntityNotFoundException;
     Page<InjectionParamDTO> getAllInjectionParams(Pageable pageable);
+
+    List<InjectionTaskInfoDTO> getInjectionTasksWithParams();
+
+
 }

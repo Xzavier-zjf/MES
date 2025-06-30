@@ -2,6 +2,7 @@ package com.shoujike.process.controller;
 
 import com.shoujike.common.exception.BusinessException;
 import com.shoujike.common.exception.EntityNotFoundException;
+import com.shoujike.product.model.DTO.InjectionTaskInfoDTO;
 import jakarta.validation.Valid;
 import com.shoujike.process.model.dto.InjectionParamCreateDTO;
 import com.shoujike.process.model.dto.InjectionParamDTO;
@@ -63,7 +64,10 @@ public class ProcessController {
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(injectionParamService.getAllInjectionParams(pageable));
     }
-
+    @GetMapping("/all")
+    public ResponseEntity<List<InjectionTaskInfoDTO>> getInjectionTasksWithParams() {
+        return ResponseEntity.ok(injectionParamService.getInjectionTasksWithParams());
+    }
     @PutMapping("/injection-params/{id}")
     public ResponseEntity<InjectionParamDTO> updateInjectionParam(
             @PathVariable Integer id,

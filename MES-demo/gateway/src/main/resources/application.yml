@@ -1,4 +1,6 @@
 spring:
+  main:
+    web-application-type: reactive
   application:
     name: gateway
   cloud:
@@ -22,16 +24,10 @@ spring:
           predicates:
             - Path=/api/v1/process/**
 
-      globalcors:
-        cors-configurations:
-          '[/**]':        # 对所有路径生效
-            allowedOrigins: "http://localhost:5173"  # 你的前端地址，根据实际改
-            allowedMethods:
-              - GET
-              - POST
-              - PUT
-              - DELETE
-              - OPTIONS
-            allowedHeaders: "*"
-            allowCredentials: true
+        - id: service-auth
+          uri: lb://auth-service
+          predicates:
+            - Path=/auth/**
+
+
 

@@ -15,6 +15,7 @@
         <module>service-equipment</module>
         <module>common-module</module>
         <module>service-process</module>
+        <module>auth-service</module>
     </modules>
 
     <artifactId>services</artifactId>

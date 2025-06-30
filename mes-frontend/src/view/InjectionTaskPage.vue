@@ -8,7 +8,6 @@
           <span class="icon">🛠</span>
           <span class="text">注塑工艺参数记录</span>
         </div>
-
         <!-- 右侧导航按钮 -->
         <nav class="nav-buttons">
           <router-link
@@ -31,14 +30,8 @@
           <el-input v-model="filters.planCode" placeholder="请输入计划编号" />
         </el-form-item>
         <el-form-item label="任务编号">
-          <el-input v-model="filters.taskId" placeholder="请输入任务编号" />
+          <el-input v-model="filters.taskCode" placeholder="请输入任务编号" />
         </el-form-item>
-
-        <!-- <el-form-item label="工序类型">
-          <el-select v-model="filters.processType" placeholder="请选择工序类型" clearable>
-            <el-option label="注塑" value="注塑" />
-          </el-select>
-        </el-form-item> -->
         <el-form-item>
           <el-button type="primary" @click="submitFilter">筛选</el-button>
           <el-button @click="resetFilter">重置</el-button>
@@ -46,26 +39,27 @@
       </el-form>
     </el-card>
 
-    <!-- 任务列表表格 -->
+    <!-- 表格展示 -->
     <el-card shadow="hover" class="table-card">
       <el-table :data="filteredTasks" border style="width: 100%">
         <el-table-column prop="planCode" label="计划编号" />
         <el-table-column prop="taskId" label="任务编号" width="120" />
-        <!-- <el-table-column prop="processType" label="工序类型" /> -->
-        <el-table-column prop="deviceId" label="设备编号" />
+        <el-table-column prop="deviceCode" label="设备编号" />
         <el-table-column prop="pressure" label="注塑压力 (MPa)" />
         <el-table-column prop="injectionSpeed" label="注塑速度 (mm/s)" />
         <el-table-column prop="holdTime" label="保压时间 (s)" />
         <el-table-column prop="coolingTime" label="冷却时间 (s)" />
-        <el-table-column prop="holdTime" label="模具温度 (℃)" />
+        <el-table-column prop="moldTemperature" label="模具温度 (℃)" />
         <el-table-column prop="materialTemperature" label="料筒温度 (℃)" />
         <el-table-column label="操作" width="150">
           <template #default="{ row }">
-            <el-button type="primary" size="small" @click="openDialog(row)">录入工艺</el-button>
+            <el-button type="primary" size="small" @click="openDialog(row)">
+              {{ row.pressure ? '修改工艺' : '录入工艺' }}
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
-      <!-- 分页组件 -->
+
       <el-pagination
         @size-change="handleSizeChange"
         @current-change="handleCurrentChange"
@@ -77,7 +71,7 @@
       />
     </el-card>
 
-    <!-- 参数录入弹窗 -->
+    <!-- 工艺参数录入弹窗 -->
     <el-dialog v-model="dialogVisible" title="录入注塑工艺参数" width="500px">
       <el-form :model="form" label-width="120px">
         <el-form-item label="注塑压力">
@@ -114,76 +108,79 @@ import axios from 'axios'
 
 const route = useRoute()
 
-// 任务列表
+// 列表数据
 const tasks = ref([])
-// 当前页码
 const currentPage = ref(1)
-// 每页显示数量
 const pageSize = ref(20)
-// 总记录数
 const total = ref(0)
 
-// 过滤条件
+// 过滤器
 const filters = ref({
-  taskId: '',
-  planCode: '',
-  processType: ''
+  taskCode: '',
+  planCode: ''
 })
 
-// 过滤后的任务列表
+// 过滤 & 分页
 const filteredTasks = computed(() => {
-  return tasks.value.filter(task => {
-    const taskIdStr = task.taskId != null ? String(task.taskId) : '';
-    const planCodeStr = task.planCode != null ? String(task.planCode) : '';
-    return (
-      taskIdStr.includes(filters.value.taskId) &&
-      planCodeStr.includes(filters.value.planCode) &&
-      (filters.value.processType === '' || task.processType === filters.value.processType)
-    )
-  })
+  return tasks.value
+    .filter(task => {
+      const taskCodeStr = task.taskCode ? String(task.taskCode) : ''
+      const planCodeStr = task.planCode ? String(task.planCode) : ''
+      return (
+        taskCodeStr.includes(filters.value.taskCode) &&
+        planCodeStr.includes(filters.value.planCode)
+      )
+    })
+    .slice((currentPage.value - 1) * pageSize.value, currentPage.value * pageSize.value)
 })
 
+// 表单弹窗相关
 const dialogVisible = ref(false)
 const form = ref({})
 
+// 跳转导航栏
 const navItems = [
   { name: '首页', path: '/home' },
   { name: '生产计划管理', path: '/plan' },
   { name: '任务管理', path: '/task' },
   { name: '设备监控', path: '/device' },
   { name: '注塑参数', path: '/injection' },
-  { name: '图案参数', path: '/pattern' },
+  { name: '图案参数', path: '/pattern' }
 ]
 
+// 打开弹窗
 const openDialog = (task) => {
-  form.value = { ...task }
+  form.value = {
+    ...task,
+    pressure: task.pressure || 0,
+    injectionSpeed: task.injectionSpeed || 0,
+    coolingTime: task.coolingTime || 0,
+    holdTime: task.holdTime || 0,
+    moldTemperature: task.moldTemperature || 0,
+    materialTemperature: task.materialTemperature || 0
+  }
   dialogVisible.value = true
 }
 
-// 更新注塑参数
-const updateInjectionParam = async (id, updateDTO) => {
-  try {
-    const response = await axios.put(`http://localhost:8080/api/v1/process/injection-params/${id}`, updateDTO)
-    return response.data
-  } catch (error) {
-    console.error('更新注塑参数失败:', error)
-    throw error
-  }
+// 创建参数
+const createInjectionParam = async (dto) => {
+  const res = await axios.post(`http://localhost:8080/api/v1/process/injection-params`, dto)
+  return res.data
 }
 
+// 更新参数
+const updateInjectionParam = async (id, dto) => {
+  const res = await axios.put(`http://localhost:8080/api/v1/process/injection-params/${id}`, dto)
+  return res.data
+}
+
+// 提交参数
 const submitParams = async () => {
-  if (!form.value.id) {
-    console.error('缺少参数 ID，无法更新')
-    dialogVisible.value = false
-    return
-  }
   try {
-    // 提取需要更新的数据
-    const updateDTO = {
-      id: form.value.id,
+    const dto = {
       planCode: form.value.planCode,
-      taskId: form.value.taskId,
-      deviceId: form.value.deviceId,
+      taskId: form.value.taskCode,
+      deviceId: form.value.deviceCode,
       pressure: form.value.pressure,
       injectionSpeed: form.value.injectionSpeed,
       coolingTime: form.value.coolingTime,
@@ -191,67 +188,69 @@ const submitParams = async () => {
       moldTemperature: form.value.moldTemperature,
       materialTemperature: form.value.materialTemperature
     }
-    // 调用更新接口
-    const updatedData = await updateInjectionParam(form.value.id, updateDTO)
-    // 更新本地任务列表
-    const index = tasks.value.findIndex(t => t.id === form.value.id)
-    if (index !== -1) {
-      tasks.value[index] = { ...tasks.value[index], ...updatedData }
+
+    let result
+    if (form.value.id) {
+      result = await updateInjectionParam(form.value.id, dto)
+    } else {
+      result = await createInjectionParam(dto)
     }
+
+    // 更新前端数据（可选刷新方式）
+    await fetchInjectionTasks()
     dialogVisible.value = false
   } catch (error) {
-    // 可添加错误提示
+    console.error('提交失败', error)
   }
 }
 
-// 提交过滤
-const submitFilter = () => {
-  // 过滤逻辑已在 computed 中实现，无需额外操作
-}
-
-// 重置过滤
+// 筛选操作
+const submitFilter = () => {}
 const resetFilter = () => {
-  filters.value = {
-    taskId: '',
-    planCode: '',
-    processType: ''
-  }
+  filters.value = { taskCode: '', planCode: '' }
 }
 
-// 获取注塑参数列表
-const fetchInjectionParams = async () => {
+// 从后端拉取所有注塑任务（已+未）
+const fetchInjectionTasks = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/v1/process/injection-params/all', {
-      params: {
-        page: currentPage.value - 1,
-        size: pageSize.value,
-        sort: 'id,desc'
-      }
-    })
-    tasks.value = response.data.content
-    total.value = response.data.totalElements
+    const res = await axios.get('http://localhost:8080/api/v1/process/all');
+    console.log('res.data:', res.data);
+
+    // 如果是分页响应结构
+    if (res.data.content) {
+      tasks.value = res.data.content.map(task => ({
+        ...task,
+        taskId: `TASK-${String(task.taskCode).padStart(4, '0')}`
+      }));
+      total.value = res.data.totalElements;
+    } else if (Array.isArray(res.data)) {
+      tasks.value = res.data.map(task => ({
+        ...task,
+        taskId: `TASK-${String(task.taskCode).padStart(4, '0')}`
+      }));
+      total.value = res.data.length;
+    } else {
+      console.warn('Unexpected response data format', res.data);
+      tasks.value = [];
+      total.value = 0;
+    }
   } catch (error) {
-    console.error('获取注塑参数列表失败:', error)
+    console.error('fetchInjectionTasks error:', error);
   }
-}
+};
 
-// 页码变化处理
-const handleCurrentChange = (val) => {
-  currentPage.value = val
-  fetchInjectionParams()
-}
 
-// 每页数量变化处理
-const handleSizeChange = (val) => {
-  pageSize.value = val
-  fetchInjectionParams()
-}
+// 分页处理
+const handleCurrentChange = (val) => { currentPage.value = val }
+const handleSizeChange = (val) => { pageSize.value = val }
 
-// 组件挂载时获取数据
 onMounted(() => {
-  fetchInjectionParams()
+  fetchInjectionTasks()
 })
 </script>
+
+
+
 
 <style scoped>
 .injection-page {

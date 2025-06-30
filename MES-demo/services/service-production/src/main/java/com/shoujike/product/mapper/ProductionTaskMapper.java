@@ -23,6 +23,7 @@ public interface ProductionTaskMapper extends BaseMapper<ProductionTask> {
 
     @Select("SELECT * FROM production_task WHERE device_id = #{deviceId} AND status = #{status}")
     List<ProductionTask> selectByDeviceAndStatus(@Param("deviceId") Integer deviceId, @Param("status") String status);
-
+    @Select("SELECT device_code FROM device WHERE id = #{id}")
+    String findDeviceCodeById(@Param("id") Long id);
 }
 
