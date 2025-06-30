@@ -8,7 +8,11 @@ import PatternManager from '../view/PatternManager.vue'
 
 const routes = [
   { path: '/', redirect: '/home' },              // 默认跳转到首页
-  { path: '/home', component: Home },            // 首页
+  {
+    path: '/home',
+    name: 'Home',
+    component: Home
+  },
   { path: '/plan', component: PlanManager },     // 生产计划管理
   { path: '/task', component: TaskManager }, 
    { path: '/device', component: DeviceManager }, 
