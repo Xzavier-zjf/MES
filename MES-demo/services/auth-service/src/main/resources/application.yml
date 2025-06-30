@@ -1,0 +1,18 @@
+server:
+  port: 8001
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: jdbc:mysql://localhost:12345/mes?useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
