@@ -275,7 +275,7 @@ export default {
     this.fetchPrintPatterns();
     this.$nextTick(() => {
       this.initDeviceStatusChart();
-      this.initUtilizationChart();
+      this.initUtilizationChart(); // This should call the main, detailed one
     });
   },
   methods: {
@@ -286,6 +286,7 @@ export default {
         this.productionPlans = response.data.content || [];
       } catch (error) {
         console.error('获取生产计划失败:', error);
+        this.productionPlans = [];
       }
     },
     async fetchDeviceStatuses() {
@@ -293,28 +294,23 @@ export default {
         const response = await axios.get('/api/v1/equipment/devices');
         console.log('设备状态数据:', response.data);
         this.devices = response.data.content || [];
-        
-        // 获取设备OEE数据
-        // TODO: Backend Optimization: Consider modifying `/api/v1/equipment/devices`
-        // to include OEE directly or provide a batch OEE endpoint to avoid N+1 requests.
         for (const device of this.devices) {
           try {
             const oeeResponse = await axios.get(`/api/v1/equipment/devices/${device.id}/oee`);
-            // Ensure oeeResponse.data is a number before calling toFixed
             if (typeof oeeResponse.data === 'number') {
               device.oee = oeeResponse.data.toFixed(2) + '%';
             } else {
-              device.oee = 'N/A'; // Or some other placeholder
+              device.oee = 'N/A';
               console.warn(`Received non-numeric OEE data for device ${device.id}:`, oeeResponse.data);
             }
           } catch (error) {
             console.error(`获取设备 ${device.id} 的OEE数据失败:`, error);
-            device.oee = 'N/A'; // Fallback if API call fails
+            device.oee = 'N/A';
           }
         }
       } catch (error) {
         console.error('获取设备状态列表失败:', error);
-        this.devices = []; // Ensure devices is an array in case of error
+        this.devices = [];
       }
     },
     async fetchProductionTasks() {
@@ -322,26 +318,19 @@ export default {
         const response = await axios.get('/api/v1/production/tasks');
         console.log('生产任务数据:', response.data);
         this.productionTasks = response.data.content || [];
-        
-        // 获取任务进度数据
-        // TODO: Backend Optimization: Consider modifying `/api/v1/production/tasks`
-        // to include progress directly or provide a batch progress endpoint.
         for (const task of this.productionTasks) {
-          // Only fetch progress if it's not already provided or seems incomplete
           if (task.quantity && typeof task.completedQuantity === 'undefined') {
             try {
               const progressResponse = await axios.get(`/api/v1/production/tasks/${task.id}/progress`);
               task.completedQuantity = progressResponse.data;
             } catch (error) {
               console.error(`获取任务 ${task.id} 的进度数据失败:`, error);
-              // task.completedQuantity will remain undefined or its initial value
-              // The template uses `task.completedQuantity || 0` which handles this
             }
           }
         }
       } catch (error) {
         console.error('获取生产任务列表失败:', error);
-        this.productionTasks = []; // Ensure productionTasks is an array
+        this.productionTasks = [];
       }
     },
     async fetchInjectionParams() {
@@ -361,135 +350,77 @@ export default {
         this.printPatterns = response.data.content || [];
       } catch (error) {
         console.error('获取印刷图案数据失败:', error);
-        this.printPatterns = []; // Fallback to empty array is reasonable
+        this.printPatterns = [];
       }
     },
     async fetchStatistics() {
       try {
-        // TODO: Backend Optimization: Consider a single endpoint like `/api/v1/dashboard/statistics`
-        // to fetch all these counts at once.
         const deviceResponse = await axios.get('/api/v1/equipment/devices?status=运行');
         this.runningDevices = deviceResponse.data.totalElements || 0;
-        console.log('运行中设备:', deviceResponse.data);
-
         const taskResponse = await axios.get('/api/v1/production/tasks?status=待下发');
         this.pendingTasks = taskResponse.data.totalElements || 0;
-        console.log('待处理任务:', taskResponse.data);
-
         const completeResponse = await axios.get('/api/v1/production/tasks?status=已完成');
         this.completedTasks = completeResponse.data.totalElements || 0;
-        console.log('已完成任务:', completeResponse.data);
-        
-        // 获取设备利用率数据
-        // TODO: Backend Optimization: Consider enhancing `/api/v1/equipment/utilization`
-        // to return a comprehensive object with overallRate, avgRate, max/min device details, and trend.
         try {
           const utilizationResponse = await axios.get('/api/v1/equipment/utilization');
-          // Ensure utilizationResponse.data is a number
           if (typeof utilizationResponse.data === 'number') {
             this.utilizationRate = parseFloat(utilizationResponse.data.toFixed(1));
           } else {
-            this.utilizationRate = 0; // Default if data is not a number
+            this.utilizationRate = 0;
             console.warn('设备利用率API未返回有效数值:', utilizationResponse.data);
           }
-
-          // For detailed utilization (max, min, avg, trend), these ideally should come from the backend.
-          // For now, we'll reset them to defaults rather than simulating with Math.random().
-          // The backend should provide these if they are to be displayed accurately.
-          this.avgUtilization = this.utilizationRate; // Simplistic assumption, real avg might differ.
+          this.avgUtilization = this.utilizationRate;
           this.maxUtilDevice = { name: 'N/A', utilization: 0 };
           this.minUtilDevice = { name: 'N/A', utilization: 0 };
-          this.utilizationTrend = 0; // Trend data should come from backend.
-
+          this.utilizationTrend = 0;
         } catch (error) {
           console.warn('获取设备利用率数据失败:', error);
-          this.utilizationRate = 0; // Default value on error
+          this.utilizationRate = 0;
           this.avgUtilization = 0;
           this.maxUtilDevice = { name: 'N/A', utilization: 0 };
           this.minUtilDevice = { name: 'N/A', utilization: 0 };
           this.utilizationTrend = 0;
         }
-        
-        // 更新利用率图表
-        this.$nextTick(() => {
-          this.initUtilizationChart();
-        });
+        this.$nextTick(() => { this.initUtilizationChart(); });
       } catch (error) {
         console.error('获取仪表盘统计数据失败:', error);
-        // Reset counts on error
         this.runningDevices = 0;
         this.pendingTasks = 0;
         this.completedTasks = 0;
+        this.utilizationRate = 0;
+        this.avgUtilization = 0;
+        this.maxUtilDevice = { name: 'N/A', utilization: 0 };
+        this.minUtilDevice = { name: 'N/A', utilization: 0 };
+        this.utilizationTrend = 0;
+        this.$nextTick(() => { this.initUtilizationChart(); });
       }
     },
-    // 初始化设备状态图表
-      }
-    },
-    // 初始化设备状态图表
     initDeviceStatusChart() {
       if (!document.getElementById('deviceStatusChart')) {
         console.warn('找不到设备状态图表容器');
         return;
       }
-      
-      // 统计设备状态数量
       const statusCount = {};
       this.devices.forEach(device => {
         statusCount[device.status] = (statusCount[device.status] || 0) + 1;
       });
-      
-      const chartData = Object.keys(statusCount).map(status => ({
-        name: status,
-        value: statusCount[status]
-      }));
-      
-      // 初始化图表
+      const chartData = Object.keys(statusCount).map(status => ({ name: status, value: statusCount[status] }));
       this.deviceStatusChart = echarts.init(document.getElementById('deviceStatusChart'));
-      
-      // 设置图表选项
       const option = {
-        tooltip: {
-          trigger: 'item',
-          formatter: '{a} <br/>{b}: {c} ({d}%)'
-        },
-        legend: {
-          orient: 'horizontal',
-          bottom: 10,
-          data: Object.keys(statusCount)
-        },
-        series: [
-          {
-            name: '设备状态',
-            type: 'pie',
-            radius: ['40%', '70%'],
-            avoidLabelOverlap: false,
-            label: {
-              show: false,
-              position: 'center'
-            },
-            emphasis: {
-              label: {
-                show: true,
-                fontSize: '14',
-                fontWeight: 'bold'
-              }
-            },
-            labelLine: {
-              show: false
-            },
-            data: chartData
-          }
-        ]
+        tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: {c} ({d}%)' },
+        legend: { orient: 'horizontal', bottom: 10, data: Object.keys(statusCount) },
+        series: [{
+          name: '设备状态', type: 'pie', radius: ['40%', '70%'], avoidLabelOverlap: false,
+          label: { show: false, position: 'center' },
+          emphasis: { label: { show: true, fontSize: '14', fontWeight: 'bold' } },
+          labelLine: { show: false },
+          data: chartData
+        }]
       };
-      
-      // 使用配置项显示图表
       this.deviceStatusChart.setOption(option);
     },
-    
-    // 初始化设备利用率仪表盘图表
-    initUtilizationChart() {
+    initUtilizationChart() { // This is the main, detailed one
       if (!this.$refs.utilizationChart) return;
-      
       const chart = echarts.init(this.$refs.utilizationChart);
       chart.setOption({
         series: [{
@@ -503,66 +434,26 @@ export default {
           axisLine: {
             lineStyle: {
               width: 8,
-              color: [
-                [0.3, '#F56C6C'],  // 红色区域 0-30%
-                [0.7, '#E6A23C'],  // 黄色区域 30-70%
-                [1, '#67C23A']     // 绿色区域 70-100%
-              ]
+              color: [[0.3, '#F56C6C'], [0.7, '#E6A23C'], [1, '#67C23A']]
             }
           },
-          pointer: {
-            icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z',
-            length: '60%',
-            width: 4,
-            itemStyle: {
-              color: '#303133'
-            }
-          },
-          axisTick: {
-            length: 6,
-            lineStyle: {
-              color: 'auto',
-              width: 1
-            }
-          },
-          splitLine: {
-            length: 10,
-            lineStyle: {
-              color: 'auto',
-              width: 2
-            }
-          },
+          pointer: { icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z', length: '60%', width: 4, itemStyle: { color: '#303133' } },
+          axisTick: { length: 6, lineStyle: { color: 'auto', width: 1 } },
+          splitLine: { length: 10, lineStyle: { color: 'auto', width: 2 } },
           axisLabel: {
-            color: '#909399',
-            fontSize: 10,
-            distance: -30,
-            formatter: function(value) {
-              if (value % 20 === 0) {
-                return value + '%';
-              }
-              return '';
-            }
+            color: '#909399', fontSize: 10, distance: -30,
+            formatter: function(value) { if (value % 20 === 0) { return value + '%'; } return ''; }
           },
           detail: {
-            fontSize: 20,
-            offsetCenter: [0, '30%'],
-            valueAnimation: true,
-            formatter: function(value) {
-              return Math.round(value) + '%';
-            },
+            fontSize: 20, offsetCenter: [0, '30%'], valueAnimation: true,
+            formatter: function(value) { return Math.round(value) + '%'; },
             color: '#303133'
           },
-          data: [{
-            value: this.utilizationRate
-          }]
+          data: [{ value: this.utilizationRate }]
         }]
       });
-      
-      // 窗口大小变化时重新渲染图表
-      window.addEventListener('resize', function() {
-        chart.resize();
-      });
-    }
+      window.addEventListener('resize', function() { chart.resize(); });
+    },
     calculateProgress(task) {
       if (!task.quantity || task.quantity === 0) return 0;
       const completed = task.completedQuantity || 0;
@@ -570,75 +461,33 @@ export default {
     },
     statusClass(status) {
       switch (status) {
-        case '进行中':
-          return 'text-success';
-        case '待开始':
-          return 'text-warning';
-        case '已完成':
-          return 'text-muted';
-        default:
-          return '';
+        case '进行中': return 'text-success';
+        case '待开始': return 'text-warning';
+        case '已完成': return 'text-muted';
+        default: return '';
       }
     },
     taskStatusClass(status) {
       switch (status) {
-        case '运行中':
-          return 'text-success';
-        case '待下发':
-          return 'text-warning';
-        case '已完成':
-          return 'text-muted';
-        case '已暂停':
-          return 'text-danger';
-        default:
-          return '';
+        case '运行中': return 'text-success';
+        case '待下发': return 'text-warning';
+        case '已完成': return 'text-muted';
+        case '已暂停': return 'text-danger';
+        default: return '';
       }
     },
-    viewPlanDetails(id) {
-      this.$router.push(`/production/plans/${id}`);
-    },
-    viewTaskDetails(id) {
-      this.$router.push(`/production/tasks/${id}`);
-    },
-    viewInjectionParamDetail(id) {
-      this.$router.push(`/process/injection/${id}`);
-    },
-    createNewTask() {
-      this.$router.push('/production/tasks/new');
-    },
-    createNewPlan() {
-      this.$router.push('/production/plans/new');
-    },
-    goToReports() {
-      this.$router.push('/reports');
-    },
-    goToDeviceManagement() {
-      this.$router.push('/equipment/devices');
-    },
-    goToProductionPlans() {
-      this.$router.push('/production/plans');
-    },
-    goToProductionTasks() {
-      this.$router.push('/production/tasks');
-    },
-    goToInjectionParams() {
-      this.$router.push('/process/injection');
-    },
-    goToPrintPatterns() {
-      this.$router.push('/process/print');
-    },
-    initUtilizationChart() {
-      const chart = echarts.init(this.$refs.utilizationChart);
-      chart.setOption({
-        series: [{
-          type: 'gauge',
-          progress: { show: true, width: 10 },
-          axisLine: { lineStyle: { width: 10 } },
-          detail: { valueAnimation: true, formatter: '{value}%' },
-          data: [{ value: this.utilizationRate }]
-        }]
-      });
-    }
+    viewPlanDetails(id) { this.$router.push(`/production/plans/${id}`); },
+    viewTaskDetails(id) { this.$router.push(`/production/tasks/${id}`); },
+    viewInjectionParamDetail(id) { this.$router.push(`/process/injection/${id}`); },
+    createNewTask() { this.$router.push('/production/tasks/new'); },
+    createNewPlan() { this.$router.push('/production/plans/new'); },
+    goToReports() { this.$router.push('/reports'); },
+    goToDeviceManagement() { this.$router.push('/equipment/devices'); },
+    goToProductionPlans() { this.$router.push('/production/plans'); },
+    goToProductionTasks() { this.$router.push('/production/tasks'); },
+    goToInjectionParams() { this.$router.push('/process/injection'); },
+    goToPrintPatterns() { this.$router.push('/process/print'); }
+    // Ensure no duplicate initUtilizationChart method here
   }
 };
 </script>
