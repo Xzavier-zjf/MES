@@ -295,18 +295,26 @@ export default {
         this.devices = response.data.content || [];
         
         // 获取设备OEE数据
+        // TODO: Backend Optimization: Consider modifying `/api/v1/equipment/devices`
+        // to include OEE directly or provide a batch OEE endpoint to avoid N+1 requests.
         for (const device of this.devices) {
           try {
             const oeeResponse = await axios.get(`/api/v1/equipment/devices/${device.id}/oee`);
-            device.oee = oeeResponse.data.toFixed(2) + '%';
+            // Ensure oeeResponse.data is a number before calling toFixed
+            if (typeof oeeResponse.data === 'number') {
+              device.oee = oeeResponse.data.toFixed(2) + '%';
+            } else {
+              device.oee = 'N/A'; // Or some other placeholder
+              console.warn(`Received non-numeric OEE data for device ${device.id}:`, oeeResponse.data);
+            }
           } catch (error) {
-            console.error(`获取设备${device.id}的OEE失败:`, error);
-            // 如果API不可用，使用模拟数据
-            device.oee = (Math.random() * 30 + 60).toFixed(2) + '%';
+            console.error(`获取设备 ${device.id} 的OEE数据失败:`, error);
+            device.oee = 'N/A'; // Fallback if API call fails
           }
         }
       } catch (error) {
-        console.error('获取设备状态失败:', error);
+        console.error('获取设备状态列表失败:', error);
+        this.devices = []; // Ensure devices is an array in case of error
       }
     },
     async fetchProductionTasks() {
@@ -316,20 +324,24 @@ export default {
         this.productionTasks = response.data.content || [];
         
         // 获取任务进度数据
+        // TODO: Backend Optimization: Consider modifying `/api/v1/production/tasks`
+        // to include progress directly or provide a batch progress endpoint.
         for (const task of this.productionTasks) {
-          if (!task.completedQuantity) {
+          // Only fetch progress if it's not already provided or seems incomplete
+          if (task.quantity && typeof task.completedQuantity === 'undefined') {
             try {
               const progressResponse = await axios.get(`/api/v1/production/tasks/${task.id}/progress`);
               task.completedQuantity = progressResponse.data;
             } catch (error) {
-              console.error(`获取任务${task.id}的进度失败:`, error);
-              // 如果API不可用，使用模拟数据
-              task.completedQuantity = Math.floor(Math.random() * task.quantity);
+              console.error(`获取任务 ${task.id} 的进度数据失败:`, error);
+              // task.completedQuantity will remain undefined or its initial value
+              // The template uses `task.completedQuantity || 0` which handles this
             }
           }
         }
       } catch (error) {
-        console.error('获取生产任务失败:', error);
+        console.error('获取生产任务列表失败:', error);
+        this.productionTasks = []; // Ensure productionTasks is an array
       }
     },
     async fetchInjectionParams() {
@@ -339,6 +351,7 @@ export default {
         this.injectionParams = response.data.content || [];
       } catch (error) {
         console.error('获取注塑工艺参数失败:', error);
+        this.injectionParams = [];
       }
     },
     async fetchPrintPatterns() {
@@ -347,66 +360,54 @@ export default {
         console.log('印刷图案数据:', response.data);
         this.printPatterns = response.data.content || [];
       } catch (error) {
-        console.error('获取印刷图案失败:', error);
-        // 如果API不可用，使用空数组
-        this.printPatterns = [];
+        console.error('获取印刷图案数据失败:', error);
+        this.printPatterns = []; // Fallback to empty array is reasonable
       }
     },
     async fetchStatistics() {
       try {
-        // 示例统计请求（实际应由后端提供聚合接口）
+        // TODO: Backend Optimization: Consider a single endpoint like `/api/v1/dashboard/statistics`
+        // to fetch all these counts at once.
         const deviceResponse = await axios.get('/api/v1/equipment/devices?status=运行');
-        const taskResponse = await axios.get('/api/v1/production/tasks?status=待下发');
-        const completeResponse = await axios.get('/api/v1/production/tasks?status=已完成');
-
-        console.log('运行中设备:', deviceResponse.data);
-        console.log('待处理任务:', taskResponse.data);
-        console.log('已完成任务:', completeResponse.data);
-
         this.runningDevices = deviceResponse.data.totalElements || 0;
+        console.log('运行中设备:', deviceResponse.data);
+
+        const taskResponse = await axios.get('/api/v1/production/tasks?status=待下发');
         this.pendingTasks = taskResponse.data.totalElements || 0;
+        console.log('待处理任务:', taskResponse.data);
+
+        const completeResponse = await axios.get('/api/v1/production/tasks?status=已完成');
         this.completedTasks = completeResponse.data.totalElements || 0;
+        console.log('已完成任务:', completeResponse.data);
         
         // 获取设备利用率数据
+        // TODO: Backend Optimization: Consider enhancing `/api/v1/equipment/utilization`
+        // to return a comprehensive object with overallRate, avgRate, max/min device details, and trend.
         try {
           const utilizationResponse = await axios.get('/api/v1/equipment/utilization');
-          this.utilizationRate = utilizationResponse.data || 75.5;
-          
-          // 获取设备详细利用率数据
-          if (this.devices.length > 0) {
-            // 模拟各设备的利用率数据
-            const deviceUtils = this.devices.map(d => {
-              return {
-                name: d.name,
-                utilization: Math.round(Math.random() * 20 + this.utilizationRate - 10)
-              };
-            });
-            
-            // 计算平均利用率
-            const totalUtilization = deviceUtils.reduce((sum, device) => sum + device.utilization, 0);
-            this.avgUtilization = Math.round(totalUtilization / deviceUtils.length);
-            
-            // 排序找出最高和最低利用率设备
-            deviceUtils.sort((a, b) => b.utilization - a.utilization);
-            this.maxUtilDevice = deviceUtils[0];
-            this.minUtilDevice = deviceUtils[deviceUtils.length - 1];
-            
-            // 模拟与上周相比的趋势变化 (-5% 到 +5%)
-            this.utilizationTrend = Math.round((Math.random() * 10 - 5) * 10) / 10;
+          // Ensure utilizationResponse.data is a number
+          if (typeof utilizationResponse.data === 'number') {
+            this.utilizationRate = parseFloat(utilizationResponse.data.toFixed(1));
           } else {
-            this.maxUtilDevice = { name: '未知', utilization: 0 };
-            this.minUtilDevice = { name: '未知', utilization: 0 };
-            this.avgUtilization = this.utilizationRate;
-            this.utilizationTrend = 0;
+            this.utilizationRate = 0; // Default if data is not a number
+            console.warn('设备利用率API未返回有效数值:', utilizationResponse.data);
           }
+
+          // For detailed utilization (max, min, avg, trend), these ideally should come from the backend.
+          // For now, we'll reset them to defaults rather than simulating with Math.random().
+          // The backend should provide these if they are to be displayed accurately.
+          this.avgUtilization = this.utilizationRate; // Simplistic assumption, real avg might differ.
+          this.maxUtilDevice = { name: 'N/A', utilization: 0 };
+          this.minUtilDevice = { name: 'N/A', utilization: 0 };
+          this.utilizationTrend = 0; // Trend data should come from backend.
+
         } catch (error) {
-          // 如果API不存在，使用默认值
-          this.utilizationRate = 75.5;
-          this.avgUtilization = 75.5;
-          this.maxUtilDevice = { name: '未知', utilization: 0 };
-          this.minUtilDevice = { name: '未知', utilization: 0 };
+          console.warn('获取设备利用率数据失败:', error);
+          this.utilizationRate = 0; // Default value on error
+          this.avgUtilization = 0;
+          this.maxUtilDevice = { name: 'N/A', utilization: 0 };
+          this.minUtilDevice = { name: 'N/A', utilization: 0 };
           this.utilizationTrend = 0;
-          console.warn('获取设备利用率失败，使用默认值:', error);
         }
         
         // 更新利用率图表
@@ -414,7 +415,14 @@ export default {
           this.initUtilizationChart();
         });
       } catch (error) {
-        console.error('获取统计数据失败:', error);
+        console.error('获取仪表盘统计数据失败:', error);
+        // Reset counts on error
+        this.runningDevices = 0;
+        this.pendingTasks = 0;
+        this.completedTasks = 0;
+      }
+    },
+    // 初始化设备状态图表
       }
     },
     // 初始化设备状态图表
