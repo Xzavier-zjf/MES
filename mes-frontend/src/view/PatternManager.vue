@@ -50,6 +50,16 @@
               {{ deviceMap[row.deviceId] || row.deviceId }}
             </template>
           </el-table-column>
+          <el-table-column label="任务数量" width="120" align="center">
+            <template #default="{ row }">
+              <el-tag >{{ row.quantity }} 件</el-tag>
+            </template>
+          </el-table-column>
+          <!-- <el-table-column label="进度" width="150">
+            <template #default="{ row }">
+              <el-progress :percentage="getProgress(row.status)" :color="progressColor(row.status)" />
+            </template>
+          </el-table-column> -->
           <el-table-column prop="patternCode" label="图案编号" width="120" />
           <el-table-column prop="patternName" label="图案名称" />
           <el-table-column label="预览图" width="120">
@@ -63,8 +73,8 @@
             </template>
           </el-table-column>
           <el-table-column prop="machineModel" label="适用机型" width="120" />
-          <el-table-column prop="defaultPrintSpeed" label="默认印刷速度(次/小时)" />
-          <el-table-column prop="defaultPressure" label="默认印刷压力(kg/cm²)" />
+          <el-table-column prop="defaultPrintSpeed" label="印刷速度(次/小时)" />
+          <el-table-column prop="defaultPressure" label="印刷压力(kg/cm²)" />
           <el-table-column label="操作" width="150">
             <template #default="{ row }">
               <el-button size="small" @click="editPattern(row)">编辑</el-button>
@@ -108,10 +118,10 @@
             <el-option label="印刷机 B" value="B" />
           </el-select>
         </el-form-item>
-        <el-form-item label="默认印刷速度">
+        <el-form-item label="印刷速度">
           <el-input-number v-model="form.defaultPrintSpeed" :min="0" />
         </el-form-item>
-        <el-form-item label="默认印刷压力">
+        <el-form-item label="印刷压力">
           <el-input-number v-model="form.defaultPressure" :min="0" />
         </el-form-item>
         <el-form-item label="图案图片">

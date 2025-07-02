@@ -145,9 +145,10 @@ const deviceStatusOption = ref({
       type: 'pie',
       radius: '60%',
       data: [
+        { value: appStore.idlingDevices, name: '空闲' },
         { value: appStore.runningDevices, name: '运行中' },
         { value: appStore.pendingDevices, name: '故障' },
-        { value: appStore.idlingDevices, name: '空闲' }
+        
       ]
     }
   ]
@@ -203,8 +204,10 @@ const productionCompletionOption = ref({
       },
       labelLine: { show: false },
       data: [
-        { value: appStore.completedPlans/appStore.totalPlans, name: '已完成' },
-        { value: 1-appStore.completedPlans/appStore.totalPlans, name: '未完成' }
+        { value: appStore.inProgressPlans, name: '进行中' },
+        { value: appStore.completedPlans, name: '已完成' },
+        { value: appStore.pendingPlans, name: '未完成' },
+
       ]
     }
   ]

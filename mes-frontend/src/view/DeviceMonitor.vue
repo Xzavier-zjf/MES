@@ -9,10 +9,10 @@
     :card2="props.card2"
     :card3="props.card3"
     :card4="props.card4"
-    :value1="totalDevices"
-    :value2="inProgress"
-    :value3="completed"
-    :value4="pending"/>
+    :value1="appStore.totalDevices"
+    :value2="appStore.runningDevices"
+    :value3="appStore.idlingDevices"
+    :value4="appStore.pendingDevices"/>
 
 
     <!-- 筛选组件 -->
@@ -73,18 +73,40 @@
             <el-option label="空闲" value="空闲" />
           </el-select>
         </el-form-item>
-        <el-form-item label="使用时长（小时）">
+        <el-form-item label="使用时长">
           <el-input-number v-model="newDevice.runtimeMinutes" :min="0" />
         </el-form-item>
-        <el-form-item label="注塑压力 (MPa)">
-          <el-input-number v-model="newDevice.injectionPressure" :min="0" />
-        </el-form-item>
-        <el-form-item label="开启次数">
+
+
+        <!-- 注塑机特有参数 -->
+        <template v-if="newDevice.type === '注塑'">
+          <el-form-item label="注塑压力 (MPa)">
+            <el-input-number v-model="newDevice.injectionPressure" :min="0" />
+          </el-form-item>
+          <el-form-item label="注塑时间 (秒)">
+            <el-input-number v-model="newDevice.injectionTime" :min="0" />
+          </el-form-item>
+          <el-form-item label="开启次数">
           <el-input-number v-model="newDevice.openCloseTimes" :min="0" />
         </el-form-item>
-        <el-form-item label="注塑时间 (秒)">
-          <el-input-number v-model="newDevice.injectionTime" :min="0" />
-        </el-form-item>
+        </template>
+        
+        <!-- 印刷机特有参数 -->
+        <template v-else-if="newDevice.type === '印刷'">
+          <el-form-item label="印刷压力 (MPa)">
+            <el-input-number v-model="newDevice.printPressure" :min="0" />
+          </el-form-item>
+          <el-form-item label="印刷速度 (mm/s)">
+            <el-input-number v-model="newDevice.printSpeed" :min="0" />
+          </el-form-item>
+          <el-form-item label="油墨使用量 (L)">
+            <el-input-number v-model="newDevice.inkUsage" :min="0" :step="0.1" />
+          </el-form-item>
+        </template>
+
+
+
+
       </el-form>
 
       <template #footer>
@@ -103,6 +125,8 @@ import DeviceFilter from '@/components/DeviceFilter.vue'
 import DeviceCard from '@/components/DeviceCard.vue'
 import DeviceDetailDialog from '@/components/DeviceDetailDialog.vue'
 import { ElMessage } from 'element-plus'
+import { useAppStore } from '@/stores'
+const appStore = useAppStore()
 
 const router = useRouter()
 const go = (path) => {
@@ -110,9 +134,7 @@ const go = (path) => {
 }
 
 const devices = ref([
-  { id: 'D001', type: '注塑机', status: '运行中', usageHours: 200, pressure: 120, openTimes: 5000, injectionTime: 6.5 },
-  { id: 'D002', type: '压机', status: '故障', usageHours: 80, pressure: 95, openTimes: 1200, injectionTime: 5.2 },
-  { id: 'D003', type: '注塑机', status: '空闲', usageHours: 0, pressure: 0, openTimes: 0, injectionTime: 0 },
+
 ])
 
 const props = defineProps({
@@ -133,11 +155,6 @@ const props = defineProps({
     default: '故障'
   }
 })
-// 计算统计数据
-const totalDevices = computed(() => devices.value.length)
-const inProgress = computed(() => devices.value.filter(t => t.status === '运行中').length)
-const completed = computed(() => devices.value.filter(t => t.status === '空闲').length)
-const pending = computed(() => devices.value.filter(t => t.status === '故障').length)
 
 const filters = ref({ name: '', status: '' })  
 

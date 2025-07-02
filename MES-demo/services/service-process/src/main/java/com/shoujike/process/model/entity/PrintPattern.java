@@ -18,7 +18,7 @@ public class PrintPattern {
     private String taskId;
     @TableField("device_id")
     private String deviceId;
-
+    private int quantity;
     @TableField("pattern_code")
     private String patternCode;
 

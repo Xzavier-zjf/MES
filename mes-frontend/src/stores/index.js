@@ -18,6 +18,7 @@ export const useAppStore = defineStore('app', () => {
   
   // 设备数据
   const devices = ref([])
+  const totalDevices = computed(() => devices.value.length)
   const pendingDevices = computed(() => devices.value.filter(d => d.status === '故障').length)
   const runningDevices = computed(() => devices.value.filter(d => d.status === '运行中').length)
   const idlingDevices = computed(() => devices.value.filter(d => d.status === '空闲').length)
@@ -73,8 +74,10 @@ export const useAppStore = defineStore('app', () => {
     completedPlans,
     inProgressTasks,
     completedTasks,
+    totalDevices,
     pendingDevices,
     runningDevices,
+    idlingDevices,
     updatePlans,
     updateTasks,
     devicesName,

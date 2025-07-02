@@ -42,7 +42,7 @@
             {{ planMap[row.planId] || row.planId }}
           </template>
         </el-table-column>
-        <el-table-column prop="taskId" label="任务编号" width="120">
+        <el-table-column prop="taskId" label="任务编号">
           <template #default="{row}">
             {{ taskMap[row.taskId] || row.taskId }}
           </template>
@@ -52,13 +52,22 @@
             {{ deviceMap[row.deviceId] || row.deviceId }}
           </template>
         </el-table-column>
-        <!-- <el-table-column prop="processType" label="工序类型" /> -->
+        <el-table-column label="任务数量" width="120" align="center">
+          <template #default="{ row }">
+            <el-tag >{{ row.quantity }} 件</el-tag>
+          </template>
+        </el-table-column>
+        <!-- <el-table-column label="进度" width="150">
+          <template #default="{ row }">
+            <el-progress :percentage="getProgress(row.status)" :color="progressColor(row.status)" />
+          </template>
+        </el-table-column> -->
         <el-table-column prop="pressure" label="注塑压力 (MPa)" />
         <el-table-column prop="injectionSpeed" label="注塑速度 (mm/s)" />
-        <el-table-column prop="holdTime" label="保压时间 (s)" />
+        <!-- <el-table-column prop="holdTime" label="保压时间 (s)" /> -->
         <el-table-column prop="coolingTime" label="冷却时间 (s)" />
         <el-table-column prop="holdTime" label="模具温度 (℃)" />
-        <el-table-column prop="materialTemperature" label="料筒温度 (℃)" />
+        <!-- <el-table-column prop="materialTemperature" label="料筒温度 (℃)" /> -->
         <el-table-column label="操作" width="150">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="openDialog(row)">录入工艺</el-button>
@@ -185,6 +194,7 @@ const submitParams = async () => {
       planId: form.value.planId,
       taskId: form.value.taskId,
       deviceId: form.value.deviceId,
+      quantity: form.value.quantity, // 确保包含quantity字段
       pressure: form.value.pressure,
       injectionSpeed: form.value.injectionSpeed,
       coolingTime: form.value.coolingTime,

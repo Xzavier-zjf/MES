@@ -12,6 +12,7 @@ public class PrintPatternCreateDTO {
     private String planId;
     private String taskId;
     private String deviceId;
+    private int quantity;
     private String patternCode;
 
     private String patternName;

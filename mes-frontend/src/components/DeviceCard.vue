@@ -7,8 +7,18 @@
     <ul class="metrics">
       <li>使用时长：{{ device.runtimeMinutes }} h</li>
       <li>开模次数：{{ device.openCloseTimes }}</li>
-      <li>压力：{{ device.injectionPressure }} Mpa</li>
-      <li>注塑时间：{{ device.injectionTime }} s</li>
+      
+      <!-- 注塑机特有参数 -->
+      <template v-if="device.type === '注塑'">
+        <li>注塑压力：{{ device.injectionPressure }} Mpa</li>
+        <li>注塑时间：{{ device.injectionTime }} s</li>
+      </template>
+      
+      <!-- 印刷机特有参数 -->
+      <template v-else-if="device.type === '印刷'">
+        <li>印刷压力：{{ device.printingPressure }} Mpa</li>
+        <li>印刷速度：{{ device.printingSpeed }} mm/s</li>
+      </template>
     </ul>
   </el-card>
 </template>

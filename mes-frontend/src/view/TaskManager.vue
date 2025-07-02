@@ -58,6 +58,7 @@ const processTypes = ['注塑', '印刷', '组装', '质检', '包装']
 const deviceOptions = ref([])
 const deviceMap = ref({})
 
+
 // 对话框状态
 const dialogVisible = ref(false)
 const isEditing = ref(false)
@@ -202,6 +203,7 @@ const loadDevices = async () => {
     deviceMap.value = {}
     deviceOptions.value = []
 
+
     data.content.forEach(device => {
       deviceMap.value[device.deviceCode] = device.id
       // 只添加状态为"空闲"的设备
@@ -227,10 +229,25 @@ const submitTask = async (data) => {
     if (!deviceRes.ok) throw new Error('获取设备状态失败')
     const device = await deviceRes.json()
     
+
+    // 定义工序类型与设备类型的映射关系
+    const processToDeviceType = {
+      '注塑': 'INJ',
+      '印刷': 'PRT', 
+      '组装': 'ASM',
+      '质检': 'QC',
+      '包装': 'PKG'
+    }
     if (device.status !== '空闲') {
       return ElMessage.error(`设备当前状态为${device.status}，无法分配任务`)
     }
 
+    // 检查设备类型是否匹配工序类型
+    const expectedPrefix = processToDeviceType[data.processType]
+    if (expectedPrefix && !device.deviceCode.startsWith(expectedPrefix)) {
+      return ElMessage.error(`设备类型不匹配，${data.processType}工序需要使用${expectedPrefix}开头的设备`)
+    }
+    
     let res
     if (isEditing.value) {
       if (!data.id) return ElMessage.error('任务ID无效，无法更新')
@@ -313,8 +330,8 @@ const submitTask = async (data) => {
 
 onMounted(async () => {
   try {
-    await loadPlans()
-    await loadDevices()
+    await loadPlans(),
+    await loadDevices(),
     await filterTasks()
   } catch (err) {
     console.error('初始化失败:', err)

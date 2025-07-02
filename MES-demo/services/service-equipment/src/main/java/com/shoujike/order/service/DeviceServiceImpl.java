@@ -43,12 +43,14 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         device.setStatus(StringUtils.isNotBlank(createDTO.getStatus()) ? createDTO.getStatus() : "闲置");
 
         // 为所有字段赋值
+        device.setType(createDTO.getType()!= null? createDTO.getType() : "");
         device.setInjectionTime(createDTO.getInjectionTime() != null ? createDTO.getInjectionTime() : 0);
         device.setInjectionPressure(createDTO.getInjectionPressure() != null ? createDTO.getInjectionPressure() : 0.0f);
         device.setRuntimeMinutes(createDTO.getRuntimeMinutes() != null ? createDTO.getRuntimeMinutes() : 0);
         device.setOpenCloseTimes(createDTO.getOpenCloseTimes() != null ? createDTO.getOpenCloseTimes() : 0);
         device.setLastMaintenanceTime(createDTO.getLastMaintenanceTime() != null ? createDTO.getLastMaintenanceTime() : null);
-
+        device.setPrintingSpeed(createDTO.getPrintingSpeed() != null ? createDTO.getPrintingSpeed() : 0.0f);
+        device.setPrintingPressure(createDTO.getPrintingPressure()!= null? createDTO.getPrintingPressure() : 0.0f);
         save(device);
         return convertToDTO(device);
     }

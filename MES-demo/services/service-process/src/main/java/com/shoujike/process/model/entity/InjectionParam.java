@@ -20,6 +20,8 @@ public class InjectionParam {
     @TableField("device_id")
     private String deviceId;
 
+    private int quantity;
+
     private Float pressure;
 
     @TableField("injection_speed")

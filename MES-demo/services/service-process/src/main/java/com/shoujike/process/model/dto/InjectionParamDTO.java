@@ -12,6 +12,7 @@ public class InjectionParamDTO {
     private String planId;
     private String taskId;
     private String deviceId;
+    private int quantity;
     private Float pressure;
     private Float injectionSpeed;
     private Float holdTime;

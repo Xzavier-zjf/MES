@@ -47,6 +47,7 @@ public class PrintPatternServiceImpl implements PrintPatternService {
         pattern.setPlanId(createDTO.getPlanId());
         pattern.setTaskId(createDTO.getTaskId());
         pattern.setDeviceId(createDTO.getDeviceId());
+        pattern.setQuantity(createDTO.getQuantity());
         pattern.setPatternCode(createDTO.getPatternCode());
         pattern.setPatternName(createDTO.getPatternName());
         pattern.setMachineModel(createDTO.getMachineModel());

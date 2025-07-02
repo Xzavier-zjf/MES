@@ -48,6 +48,7 @@ public class InjectionParamServiceImpl implements InjectionParamService {
         param.setPlanId(createDTO.getPlanId());
         param.setDeviceId(createDTO.getDeviceId());
         param.setTaskId(createDTO.getTaskId());
+        param.setQuantity(createDTO.getQuantity());
         param.setPressure(createDTO.getPressure());
         param.setInjectionSpeed(createDTO.getInjectionSpeed());
         param.setHoldTime(createDTO.getHoldTime());
