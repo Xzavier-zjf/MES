@@ -42,8 +42,8 @@ cd auth-service && mvn spring-boot:run
 # 其他模块类似...
 ```
 
-3，前端启动
-先安装：npm i axios
+# 3，前端启动
+先安装axios：npm i axios
 后启动：npm run dev
 
 ## 接口文档
