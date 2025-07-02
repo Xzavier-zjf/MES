@@ -6,7 +6,6 @@ import com.shoujike.common.exception.BusinessException;
 import com.shoujike.common.exception.EntityNotFoundException;
 
 import com.shoujike.process.model.client.ProductionTaskClient;
-import com.shoujike.product.model.DTO.InjectionTaskInfoDTO;
 import com.shoujike.product.model.DTO.TaskDTO;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -46,7 +45,7 @@ public class InjectionParamServiceImpl implements InjectionParamService {
         }
 
         InjectionParam param = new InjectionParam();
-        param.setPlanCode(createDTO.getPlanCode());
+        param.setPlanId(createDTO.getPlanId());
         param.setDeviceId(createDTO.getDeviceId());
         param.setTaskId(createDTO.getTaskId());
         param.setPressure(createDTO.getPressure());
@@ -81,27 +80,7 @@ public class InjectionParamServiceImpl implements InjectionParamService {
     }
 
 
-    @Override
-    public List<InjectionTaskInfoDTO> getInjectionTasksWithParams() {
-        // 先通过Feign获取所有注塑任务
-        List<InjectionTaskInfoDTO> tasks = productionTaskClient.getInjectionTasks();
 
-        return tasks.stream().map(task -> {
-            InjectionParam param = injectionParamMapper.findByTaskId(task.getTaskCode());
-            if (param != null) {
-                // 如果已经录入，拷贝全部参数到DTO，供显示和修改
-                task.setId(param.getId());
-                task.setPressure(param.getPressure());
-                task.setInjectionSpeed(param.getInjectionSpeed());
-                task.setHoldTime(param.getHoldTime());
-                task.setCoolingTime(param.getCoolingTime());
-                task.setMoldTemperature(param.getMoldTemperature());
-                task.setMaterialTemperature(param.getMaterialTemperature());
-            }
-            // 如果没有录入，则只返回taskId, planCode, deviceCode（已经在DTO里了）
-            return task;
-        }).collect(Collectors.toList());
-    }
     @Override
     public InjectionParamDTO getInjectionParamById(Integer id) throws EntityNotFoundException {
         InjectionParam param = injectionParamMapper.selectById(id);

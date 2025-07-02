@@ -1,27 +1,18 @@
 <template>
   <div class="device-monitor">
-    <!-- 顶部信息 + 导航按钮 -->
-    <el-card class="header-card" shadow="hover">
-      <div class="header-flex">
-        <!-- 左边标题和描述 -->
-        <div class="header-left">
-          <h2 class="title">📊 设备状态监控中心</h2>
-          <p class="subtitle">实时掌握车间设备运行状态与关键指标</p>
-        </div>
-
-
-
-        <!-- 右边导航按钮 -->
-         <div class="nav-row">
-
-          <button class="nav-btn" @click="go('/home')">首页</button>
-          <button class="nav-btn" @click="go('/plan')">生产计划管理</button>
-          <button class="nav-btn" @click="go('/task')">任务管理</button>
-          <button class="nav-btn" @click="go('/injection')">注塑参数</button>
-          <button class="nav-btn" @click="go('/pattern')">图案参数</button>
-        </div>
-      </div>
-    </el-card>
+    <HeaderSection 
+    title="设备监控"
+    subtitle="     实时监测设备状态，预警故障隐患，减少生产停滞，保障生产连续性。
+      "
+    :showStats="true"
+    :card1="props.card1"
+    :card2="props.card2"
+    :card3="props.card3"
+    :card4="props.card4"
+    :value1="totalDevices"
+    :value2="inProgress"
+    :value3="completed"
+    :value4="pending"/>
 
 
     <!-- 筛选组件 -->
@@ -105,6 +96,7 @@
 </template>
 
 <script setup>
+import HeaderSection from '@/components/HeaderSection.vue'
 import { ref, computed, onMounted } from 'vue' // 添加onMounted导入
 import { useRouter } from 'vue-router'
 import DeviceFilter from '@/components/DeviceFilter.vue'
@@ -122,6 +114,30 @@ const devices = ref([
   { id: 'D002', type: '压机', status: '故障', usageHours: 80, pressure: 95, openTimes: 1200, injectionTime: 5.2 },
   { id: 'D003', type: '注塑机', status: '空闲', usageHours: 0, pressure: 0, openTimes: 0, injectionTime: 0 },
 ])
+
+const props = defineProps({
+  card1: {
+    type: String,
+    default: '总设备数'
+  },
+  card2: {
+    type: String,
+    default: '运行中'
+  },
+  card3: {
+    type: String,
+    default: '空闲中'
+  },
+  card4: {
+    type: String,
+    default: '故障'
+  }
+})
+// 计算统计数据
+const totalDevices = computed(() => devices.value.length)
+const inProgress = computed(() => devices.value.filter(t => t.status === '运行中').length)
+const completed = computed(() => devices.value.filter(t => t.status === '空闲').length)
+const pending = computed(() => devices.value.filter(t => t.status === '故障').length)
 
 const filters = ref({ name: '', status: '' })  
 
@@ -270,7 +286,7 @@ const updateDeviceStatus = (newStatus) => {
 
 <style scoped>
 .device-monitor {
-  padding: 24px;
+  padding: 20px;
   background-color: #f5f7fa;
   min-height: 100vh;
 }

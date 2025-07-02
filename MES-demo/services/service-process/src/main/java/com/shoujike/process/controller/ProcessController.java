@@ -2,7 +2,6 @@ package com.shoujike.process.controller;
 
 import com.shoujike.common.exception.BusinessException;
 import com.shoujike.common.exception.EntityNotFoundException;
-import com.shoujike.product.model.DTO.InjectionTaskInfoDTO;
 import jakarta.validation.Valid;
 import com.shoujike.process.model.dto.InjectionParamCreateDTO;
 import com.shoujike.process.model.dto.InjectionParamDTO;
@@ -22,7 +21,6 @@ import com.shoujike.process.service.InjectionParamService;
 import com.shoujike.process.service.PrintPatternService;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -64,10 +62,7 @@ public class ProcessController {
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(injectionParamService.getAllInjectionParams(pageable));
     }
-    @GetMapping("/all")
-    public ResponseEntity<List<InjectionTaskInfoDTO>> getInjectionTasksWithParams() {
-        return ResponseEntity.ok(injectionParamService.getInjectionTasksWithParams());
-    }
+
     @PutMapping("/injection-params/{id}")
     public ResponseEntity<InjectionParamDTO> updateInjectionParam(
             @PathVariable Integer id,
@@ -93,21 +88,45 @@ public class ProcessController {
 
     // ================ 印刷图案管理 ================
     @PostMapping("/print-patterns")
-    public ResponseEntity<PrintPatternDTO> createPrintPattern(
-            @Valid @ModelAttribute PrintPatternCreateDTO createDTO,  // 改为@ModelAttribute接收表单数据
-            @RequestPart("image") MultipartFile imageFile) throws BusinessException {
+    public ResponseEntity<?> createPrintPattern(
+            @Valid  @RequestBody PrintPatternCreateDTO createDTO) {  // 修改参数名称匹配前端
 
-        // 调用新增的文件存储逻辑
-        String imageUrl = printPatternService.storeImage(imageFile);
-        createDTO.setImageUrl(imageUrl);
+        try {
 
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(printPatternService.createPrintPattern(createDTO));
+            PrintPatternDTO result = printPatternService.createPrintPattern(createDTO);
+            return ResponseEntity.status(HttpStatus.CREATED).body(result);
+
+        } catch (BusinessException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "message", e.getMessage(),
+                    "timestamp", System.currentTimeMillis()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "message", "文件上传失败: " + e.getMessage(),
+                    "timestamp", System.currentTimeMillis()
+            ));
+        }
     }
     @PutMapping("/print-patterns/{id}")
     public ResponseEntity<PrintPatternDTO> updatePrintPattern(
             @PathVariable Integer id,
-            @Valid @RequestBody PrintPatternCreateDTO updateDTO) throws BusinessException, EntityNotFoundException {
+            @Valid @ModelAttribute PrintPatternCreateDTO updateDTO,
+            @RequestPart(value = "imageFile", required = false) MultipartFile imageFile) throws BusinessException, EntityNotFoundException {
+
+        // 处理文件更新（可选）
+        if (imageFile != null && !imageFile.isEmpty()) {
+            String newImageUrl = printPatternService.storeImage(imageFile);
+            updateDTO.setImageUrl(newImageUrl);
+        } else {
+            // 当未上传新文件时，确保使用现有图片URL
+            PrintPatternDTO existing = printPatternService.getPrintPatternById(id);
+            if (existing.getImageUrl() == null) {
+                throw new BusinessException("无法更新：原记录未包含图片，必须上传新图片");
+            }
+            updateDTO.setImageUrl(existing.getImageUrl());
+        }
+
         return ResponseEntity.ok(printPatternService.updatePrintPattern(id, updateDTO));
     }
 

@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class InjectionParamDTO {
     private Integer id;
-    private String planCode;
+    private String planId;
     private String taskId;
     private String deviceId;
     private Float pressure;

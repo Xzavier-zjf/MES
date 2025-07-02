@@ -12,6 +12,13 @@ public class PrintPattern {
     @TableId(type = IdType.AUTO)
     private Integer id;
 
+    @TableField("plan_id")
+    private String planId;
+    @TableField("task_id")
+    private String taskId;
+    @TableField("device_id")
+    private String deviceId;
+
     @TableField("pattern_code")
     private String patternCode;
 

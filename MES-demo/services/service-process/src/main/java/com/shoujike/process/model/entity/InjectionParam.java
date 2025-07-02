@@ -12,8 +12,8 @@ public class InjectionParam {
     @TableId(type = IdType.AUTO)
     private String id;
 
-    @TableField("plan_code")
-    private String planCode;
+    @TableField("plan_id")
+    private String planId;
 
     @TableField("task_id")
     private String taskId;

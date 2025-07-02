@@ -9,6 +9,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PrintPatternDTO {
     private Integer id;
+    private String planId;
+    private String taskId;
+    private String deviceId;
     private String patternCode;
     private String patternName;
     private String machineModel;

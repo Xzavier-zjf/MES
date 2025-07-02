@@ -1,12 +1,10 @@
 <template>
   <div class="dashboard">
-    <!-- 欢迎语 -->
-    <el-card class="welcome-card" shadow="hover">
-      <div class="welcome-text">
-        <h2>欢迎使用MES生产管理平台</h2>
-        <p>当前环境：注塑车间 · 实时监控与管理中心</p>
-      </div>
-    </el-card>
+    <HeaderSection 
+    title="欢迎使用MES生产管理平台"
+    subtitle=" 当前环境：注塑车间 · 实时监控与管理中心"
+    :showStats="false"
+    />
 
     <!-- 四个统计卡片 -->
     <div class="stats-container">
@@ -59,27 +57,13 @@
       </el-card>
     </div>
 
-    <!-- 快捷入口导航区 -->
-    <el-card class="nav-card" shadow="always">
-      <h3>功能导航</h3>
-      <div class="nav-buttons">
-        <el-button
-          v-for="item in navItems"
-          :key="item.name"
-          type="primary"
-          icon="ArrowRight"
-          plain
-          @click="navigate(item.path)"
-        >
-          {{ item.name }}
-        </el-button>
-      </div>
-    </el-card>
+ 
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import HeaderSection from '@/components/HeaderSection.vue'
+import { ref, onMounted, nextTick, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Document, Setting, Finished, Warning } from '@element-plus/icons-vue'
 import { use } from 'echarts/core'
@@ -87,6 +71,9 @@ import VChart from 'vue-echarts'
 import { CanvasRenderer } from 'echarts/renderers'
 import { BarChart, PieChart, LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, LegendComponent, TitleComponent } from 'echarts/components'
+import { useAppStore } from '@/stores'
+
+const appStore = useAppStore()
 
 use([
   CanvasRenderer,
@@ -102,11 +89,31 @@ use([
 const router = useRouter()
 const showChart = ref(false) // 控制图表加载
 
-const stats = ref([
-  { label: '今日计划数', value: 5, icon: Document, color: '#409EFF' },
-  { label: '进行中任务', value: 12, icon: Setting, color: '#67C23A' },
-  { label: '已完成任务', value: 23, icon: Finished, color: '#E6A23C' },
-  { label: '异常设备', value: 2, icon: Warning, color: '#F56C6C' }
+const stats = computed(() => [
+  { 
+    label: '今日计划数', 
+    value: appStore.totalPlans, 
+    icon: Document, 
+    color: '#409EFF' 
+  },
+  { 
+    label: '进行中任务', 
+    value: appStore.inProgressTasks, 
+    icon: Setting, 
+    color: '#67C23A' 
+  },
+  { 
+    label: '已完成任务', 
+    value: appStore.completedTasks, 
+    icon: Finished, 
+    color: '#E6A23C' 
+  },
+  { 
+    label: '异常设备', 
+    value: appStore.pendingDevices, 
+    icon: Warning, 
+    color: '#F56C6C' 
+  }
 ])
 
 const navItems = ref([
@@ -208,6 +215,8 @@ const navigate = (path) => {
 onMounted(() => {
   nextTick(() => {
     showChart.value = true
+    // 加载所有数据
+    appStore.fetchAllData()
   })
 })
 </script>
@@ -234,6 +243,10 @@ onMounted(() => {
   display: flex;
   gap: 20px;
   margin-bottom: 20px;
+}
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 }
 
 .stat-card {
@@ -282,7 +295,10 @@ onMounted(() => {
   width: 100% !important;
   height: 100% !important; /* 100%撑满父容器 */
 }
-
+.chart-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
 
 
 .nav-card {

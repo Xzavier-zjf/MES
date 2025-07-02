@@ -1,28 +1,16 @@
 <template>
   <div class="plan-manager">
-    <!-- 顶部标题和导航栏合并在一个卡片 -->
-    <el-card shadow="hover" class="header-card">
-      <div class="header-content">
-        <!-- 左侧标题 -->
-        <div class="left-title">
-          <span class="icon">📄</span>
-          <span class="text">生产计划管理</span>
-        </div>
-
-        <!-- 中间导航按钮 -->
-        <nav class="nav-buttons">
-          <router-link
-            v-for="item in navItems"
-            :key="item.path"
-            :to="item.path"
-            class="nav-link"
-            :class="{ active: $route.path === item.path }"
-          >
-            {{ item.name }}
-          </router-link>
-        </nav>
-      </div>
-    </el-card>
+    <HeaderSection 
+    title="生产计划管理"
+    subtitle="用于制定手机壳生产计划，依订单、库存等安排任务，保障生产顺利推进。
+      "
+    :showStats="true"
+    :card1="props.card1"
+    :card4="props.card4"
+    :value1="totalPlans"
+    :value2="inProgress"
+    :value3="completed"
+    :value4="pending"/>
 
     <!-- 中间过滤器区域 -->
     <el-card class="filter-card" shadow="hover">
@@ -30,35 +18,37 @@
         <el-input
           v-model="filter.keyword"
           placeholder="输入计划编号或产品名称"
-          size="small"
           clearable
           style="width: 220px"
-          @input="fetchPlans"
         />
+        <el-select
+          v-model="filter.priority"
+          placeholder="优先级"
+          clearable
+          style="width: 120px"
+        >
+            <el-option label="低" value="3" />
+          <el-option label="中" value="2" />
+          <el-option label="高" value="1  " />
+        </el-select>
         <el-select
           v-model="filter.status"
           placeholder="状态"
-          size="small"
           clearable
           style="width: 120px"
-          @change="fetchPlans"
         >
-          <el-option label="草稿" value="草稿" />
             <el-option label="待下发" value="待下发" />
-          <el-option label="已下发" value="已下发" />
           <el-option label="进行中" value="进行中" />
           <el-option label="已完成" value="已完成" />
         </el-select>
-        <el-button type="primary" size="small" icon="Plus" @click="openDialog">
-          添加计划
-        </el-button>
+        <el-button type="primary" @click="openDialog">添加计划</el-button>
       </div>
     </el-card>
 
     <!-- 表格展示区域 -->
     <el-card class="table-card" shadow="always">
-      <el-table :data="filteredPlans" style="width: 100%" border>
-        <el-table-column prop="planCode" label="计划编号" width="150" />
+      <el-table :data="filteredPlans" style="width: 100%" border size="large">
+        <el-table-column prop="planCode" label="计划编号" width="180" />
         <el-table-column prop="productName" label="产品名称" width="200" />
         <el-table-column prop="totalQuantity" label="生产数量" width="120" />
         <el-table-column label="优先级" width="100">
@@ -83,7 +73,7 @@
         </el-table-column>
         <el-table-column label="操作" width="160">
           <template #default="scope">
-            <el-button size="small" type="primary" plain @click="editPlan(scope.row)">编辑</el-button>
+            <el-button size="small" type="primary" plain @click="editPlan(scope.row)" >编辑</el-button>
             <el-button size="small" type="danger" plain @click="deletePlan(scope.row)">删除</el-button>
           </template>
         </el-table-column>
@@ -117,16 +107,14 @@
         </el-form-item>
         <el-form-item label="优先级">
           <el-select v-model="form.priority" placeholder="请选择">
-            <el-option label="高" value="高" />
-            <el-option label="中" value="中" />
-            <el-option label="低" value="低" />
+            <el-option label="高" value="1" />
+            <el-option label="中" value="2" />
+            <el-option label="低" value="3" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="form.status" placeholder="请选择">
-            <el-option label="草稿" value="草稿" />
              <el-option label="待下发" value="待下发" />
-            <el-option label="已下发" value="已下发" />
             <el-option label="进行中" value="进行中" />
             <el-option label="已完成" value="已完成" />
           </el-select>
@@ -143,8 +131,10 @@
 </template>
 
 <script setup>
+import HeaderSection from '@/components/HeaderSection.vue'
 import { ref, computed, onMounted } from 'vue'
 import dayjs from 'dayjs'
+
 
 // 优先级映射：文字 <-> 数字
 const priorityMap = {
@@ -157,6 +147,22 @@ const reversePriorityMap = {
   2: '中',
   3: '低',
 }
+
+const props = defineProps({
+  card1: {
+    type: String,
+    default: '总计划数'
+  },
+  card4: {
+    type: String,
+    default: '待下发'
+  }
+})
+// 计算统计数据
+const totalPlans = computed(() => plans.value.length)
+const inProgress = computed(() => plans.value.filter(t => t.status === '进行中').length)
+const completed = computed(() => plans.value.filter(t => t.status === '已完成').length)
+const pending = computed(() => plans.value.filter(t => t.status === '待下发').length)
 
 const dialogVisible = ref(false)
 const isEditMode = ref(false)
@@ -176,6 +182,7 @@ const form = ref({
 const filter = ref({
   keyword: '',
   status: '',
+  priority: '' // 新增优先级筛选
 })
 
 const navItems = [
@@ -188,18 +195,10 @@ const navItems = [
 
 const fetchPlans = async () => {
   try {
-    let query = `?page=${page.value - 1}&size=${size.value}`
-    if (filter.value.status) {
-      query += `&status=${filter.value.status}`
-    }
-    if (filter.value.keyword) {
-      query += `&keyword=${encodeURIComponent(filter.value.keyword)}`
-    }
-    const res = await fetch(`http://localhost:8080/api/v1/production/plans${query}`)
+    const res = await fetch(`http://localhost:8080/api/v1/production/plans?page=${page.value - 1}&size=${size.value}`)
     const data = await res.json()
 
     plans.value = data.content.map(item => {
-      // 确保 priority 是数字，再映射文字
       const priorityNum = Number(item.priority)
       return {
         ...item,
@@ -315,12 +314,8 @@ const deletePlan = async (row) => {
 
 const statusTagType = (status) => {
   switch (status) {
-    case '草稿':
-      return 'info'
     case '待下发':
       return 'warning'   // 给“待下发”一个醒目的颜色（也可以换）
-    case '已下发':
-      return 'success'
     case '进行中':
       return 'primary'
     case '已完成':
@@ -350,13 +345,28 @@ const formatDate = (dateStr) => {
 }
 
 const filteredPlans = computed(() => {
-  if (!filter.value.keyword) return plans.value
-  const kw = filter.value.keyword.toLowerCase()
-  return plans.value.filter(
-    (plan) =>
+  let result = [...plans.value]
+  
+  // 关键词筛选
+  if (filter.value.keyword) {
+    const kw = filter.value.keyword.toLowerCase()
+    result = result.filter(plan => 
       (plan.planCode && plan.planCode.toLowerCase().includes(kw)) ||
       (plan.productName && plan.productName.toLowerCase().includes(kw))
-  )
+    )
+  }
+  
+  // 状态筛选
+  if (filter.value.status) {
+    result = result.filter(plan => plan.status === filter.value.status)
+  }
+  
+  // 优先级筛选
+  if (filter.value.priority) {
+    result = result.filter(plan => plan.priority === Number(filter.value.priority))
+  }
+  
+  return result
 })
 </script>
 
