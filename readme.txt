@@ -36,7 +36,7 @@
 # 1. 启动Nacos
 startup.cmd -m standalone
 
-# 2. 启动各服务模块
+# 2. 后端启动各服务模块
 cd gateway && mvn spring-boot:run
 cd auth-service && mvn spring-boot:run
 # 其他模块类似...
