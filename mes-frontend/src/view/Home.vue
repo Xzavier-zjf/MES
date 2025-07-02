@@ -116,6 +116,8 @@ const stats = computed(() => [
   }
 ])
 
+
+
 const navItems = ref([
   { name: '生产计划管理', path: '/plan' },
   { name: '任务管理', path: '/task' },
@@ -143,9 +145,9 @@ const deviceStatusOption = ref({
       type: 'pie',
       radius: '60%',
       data: [
-        { value: 10, name: '运行中' },
-        { value: 2, name: '故障' },
-        { value: 3, name: '空闲' }
+        { value: appStore.runningDevices, name: '运行中' },
+        { value: appStore.pendingDevices, name: '故障' },
+        { value: appStore.idlingDevices, name: '空闲' }
       ]
     }
   ]
@@ -157,7 +159,7 @@ const deviceUsageOption = ref({
   tooltip: { trigger: 'axis' },
   xAxis: {
     type: 'category',
-    data: ['设备A', '设备B', '设备C', '设备D', '设备E']
+    data: appStore.devicesName
   },
   yAxis: {
     type: 'value',
@@ -167,7 +169,7 @@ const deviceUsageOption = ref({
     {
       name: '运行小时',
       type: 'bar',
-      data: [120, 98, 135, 80, 90],
+      data: appStore.runtimeMinutes,
       itemStyle: { color: '#409EFF' }
     }
   ]
@@ -201,8 +203,8 @@ const productionCompletionOption = ref({
       },
       labelLine: { show: false },
       data: [
-        { value: 75, name: '已完成' },
-        { value: 25, name: '未完成' }
+        { value: appStore.completedPlans/appStore.totalPlans, name: '已完成' },
+        { value: 1-appStore.completedPlans/appStore.totalPlans, name: '未完成' }
       ]
     }
   ]

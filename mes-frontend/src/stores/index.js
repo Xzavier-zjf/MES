@@ -1,13 +1,16 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
+
+  
 export const useAppStore = defineStore('app', () => {
   // 生产计划数据
   const plans = ref([])
   const totalPlans = computed(() => plans.value.length)
   const inProgressPlans = computed(() => plans.value.filter(p => p.status === '进行中').length)
   const pendingPlans = computed(() => plans.value.filter(p => p.status === '待下发').length)
-  
+  const completedPlans = computed(() => plans.value.filter(p => p.status === '已完成').length)
+
   // 任务数据
   const tasks = ref([])
   const inProgressTasks = computed(() => tasks.value.filter(t => t.status === '进行中').length)
@@ -17,7 +20,10 @@ export const useAppStore = defineStore('app', () => {
   const devices = ref([])
   const pendingDevices = computed(() => devices.value.filter(d => d.status === '故障').length)
   const runningDevices = computed(() => devices.value.filter(d => d.status === '运行中').length)
-  
+  const idlingDevices = computed(() => devices.value.filter(d => d.status === '空闲').length)
+  const devicesName = computed(() => devices.value.map(d => d.name))  // 新增设备名称列表
+  const runtimeMinutes = computed(() => devices.value.map(d => d.runtimeMinutes))  // 新增设备运行时间（分钟）
+
   // 更新方法
   const updatePlans = (newPlans) => {
     plans.value = newPlans
@@ -64,13 +70,15 @@ export const useAppStore = defineStore('app', () => {
     totalPlans,
     inProgressPlans,
     pendingPlans,
+    completedPlans,
     inProgressTasks,
     completedTasks,
     pendingDevices,
     runningDevices,
     updatePlans,
     updateTasks,
-
+    devicesName,
+    runtimeMinutes,
     updateDevices,
     fetchAllData
   }

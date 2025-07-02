@@ -53,7 +53,6 @@
           </template>
         </el-table-column>
         <!-- <el-table-column prop="processType" label="工序类型" /> -->
-        <el-table-column prop="deviceId" label="设备编号" />
         <el-table-column prop="pressure" label="注塑压力 (MPa)" />
         <el-table-column prop="injectionSpeed" label="注塑速度 (mm/s)" />
         <el-table-column prop="holdTime" label="保压时间 (s)" />
