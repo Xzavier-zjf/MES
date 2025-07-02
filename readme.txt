@@ -42,6 +42,10 @@ cd auth-service && mvn spring-boot:run
 # 其他模块类似...
 ```
 
+3，前端启动
+先安装：npm i axios
+后启动：npm run dev
+
 ## 接口文档
 访问 `http://localhost:8080/swagger-ui.html` 查看各模块API文档
 
