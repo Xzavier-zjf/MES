@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 public class ProductionTask {
     @TableId(type = IdType.AUTO)
     private Integer id;
+    private String taskCode;
     private Integer planId;
     private Integer deviceId;
     private String processType;

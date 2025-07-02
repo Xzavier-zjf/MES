@@ -4,7 +4,15 @@
 </template>
 
 <script setup>
-// 空脚本，使用 <router-view> 显示页面组件
+import { onMounted } from 'vue'
+import { useAppStore } from '@/stores'
+
+const appStore = useAppStore()
+
+onMounted(() => {
+  // 初始化数据
+  appStore.fetchAllData()
+})
 </script>
 
 <style>

@@ -20,3 +20,4 @@ public interface PrintPatternService {
     void deletePrintPattern(Integer id) throws EntityNotFoundException;
     public String storeImage(MultipartFile file) throws BusinessException;
 }
+

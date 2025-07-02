@@ -8,8 +8,8 @@ import com.shoujike.common.client.EquipmentClient;
 import com.shoujike.common.dto.DeviceDTO;
 import com.shoujike.common.exception.EntityNotFoundException;
 import com.shoujike.product.mapper.ProductionPlanMapper;
-import com.shoujike.product.model.DTO.InjectionTaskInfoDTO;
 import com.shoujike.product.model.DTO.TaskCreateDTO;
+import com.shoujike.product.model.DTO.TaskUpdateDTO;
 import com.shoujike.product.model.entity.ProductionPlan;
 import com.shoujike.product.model.entity.ProductionTask;
 import com.shoujike.product.mapper.ProductionTaskMapper;
@@ -44,6 +44,7 @@ public class ProductionTaskService extends ServiceImpl<ProductionTaskMapper, Pro
         ProductionTask task = new ProductionTask();
 
         // 设置必填字段
+        task.setTaskCode(createDTO.getTaskCode());
         task.setPlanId(planId); // ❗从方法参数传入
         task.setDeviceId(createDTO.getDeviceId());
         task.setProcessType(createDTO.getProcessType());
@@ -74,7 +75,17 @@ public class ProductionTaskService extends ServiceImpl<ProductionTaskMapper, Pro
         updateById(task);
     }
 
-
+    public void updateTask(Integer id, TaskUpdateDTO dto) throws EntityNotFoundException {
+        ProductionTask task = getById(id);
+        if (task == null) {
+            throw new EntityNotFoundException("生产任务不存在");
+        }
+            task.setTaskCode(dto.getTaskCode());
+            task.setDeviceId(dto.getDeviceId());
+            task.setQuantity(dto.getQuantity());
+            task.setStatus(dto.getStatus());
+        updateById(task);
+    }
     public List<ProductionTask> getTasksByPlan(Integer planId) {
         return productionTaskMapper.selectByPlanId(Long.valueOf(planId));
     }

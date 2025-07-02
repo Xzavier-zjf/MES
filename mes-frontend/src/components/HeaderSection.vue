@@ -4,7 +4,7 @@
     <div class="header-top-row">
       <div class="header-title">
         <i class="fas fa-tasks"></i>
-        <span>任务管理系统</span>
+        <span>{{ title }}</span>
       </div>
       <div class="nav-buttons">
         <button class="nav-btn" @click="go('/home')">首页</button>
@@ -18,27 +18,26 @@
 
     <!-- 副标题 -->
     <p class="header-subtitle">
-      高效管理生产任务，实时监控任务状态。通过本系统您可以创建、分配、跟踪和完成生产任务，
-      确保生产计划按时完成。系统提供全面的数据统计和可视化分析，帮助您优化生产流程。
+      {{ subtitle }}
     </p>
 
     <!-- 统计卡片 -->
-     <div class="stats-container">
+    <div class="stats-container" v-if="showStats">
       <div class="stat-card fade-in delay-1">
-        <div class="stat-value">{{ props.totalTasks }}</div>
-        <div class="stat-label">总任务数</div>
+        <div class="stat-value">{{ props.value1 }}</div>
+        <div class="stat-label">{{ props.card1 }}</div>
       </div>
       <div class="stat-card fade-in delay-2">
-        <div class="stat-value">{{ props.inProgressTasks }}</div>
-        <div class="stat-label">进行中</div>
+        <div class="stat-value">{{ props.value2 }}</div>
+        <div class="stat-label">{{ props.card2 }}</div>
       </div>
       <div class="stat-card fade-in delay-3">
-        <div class="stat-value">{{ props.completedTasks }}</div>
-        <div class="stat-label">已完成</div>
+        <div class="stat-value">{{ props.value3 }}</div>
+        <div class="stat-label">{{ props.card3 }}</div>
       </div>
       <div class="stat-card fade-in delay-4">
-        <div class="stat-value">{{ props.pendingTasks }}</div>
-        <div class="stat-label">待下发</div>
+        <div class="stat-value">{{ props.value4 }}</div>
+        <div class="stat-label">{{ props.card4 }}</div>
       </div>
     </div>
   </div>
@@ -52,23 +51,51 @@ const go = (path) => {
   router.push(path)
 }
 
-// 保留props，设置默认值，防止未传数据报错
+// 定义props
 const props = defineProps({
-  totalTasks: {
+  title: {
+    type: String,
+    default: '生产管理系统'
+  },
+  subtitle: {
+    type: String,
+    default: '高效管理生产流程，实时监控系统状态'
+  },
+  showStats: {
+    type: Boolean,
+    default: false
+  },
+  value1: {
     type: Number,
     default: 0
   },
-  inProgressTasks: {
+  card1: {
+    type: String,
+    default: '总任务数'
+  },
+  value2: {
     type: Number,
     default: 0
   },
-  completedTasks: {
+  card2: {
+    type: String,
+    default: '进行中'
+  },
+  value3: {
     type: Number,
     default: 0
   },
-  pendingTasks: {
+  card3: {
+    type: String,
+    default: '已完成'
+  },
+  value4: {
     type: Number,
     default: 0
+  },
+  card4: {
+    type: String,
+    default: '未完成'
   },
 })
 </script>

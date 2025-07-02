@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 
+
 public class JwtUtil {
 
     // 你的 secret key，长度必须足够（HMAC-SHA256 最少 256 bits = 32 chars）

@@ -18,8 +18,8 @@ spring:
       minimum-idle: 5
   servlet:
     multipart:
-      max-file-size=5MB
-      max-request-size=10MB
+      max-file-size: 5MB
+      max-request-size: 10MB
 server:
   port: 7000
   error:
@@ -33,4 +33,4 @@ mybatis-plus:
   type-aliases-package: com.shoujike.product.entity # ??????
 file:
   upload:
-    dir: /opt/uploads/patterns/  # 新增文件存储配置
+    dir: ./services/service-process/src/main/resources/static/uploads/patterns/

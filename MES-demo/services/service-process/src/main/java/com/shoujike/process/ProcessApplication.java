@@ -4,7 +4,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = {
+        "com.shoujike.process",
+        "com.shoujike.common.config"
+})
 @EnableFeignClients
 public class ProcessApplication {
     public static void main(String[] args) {

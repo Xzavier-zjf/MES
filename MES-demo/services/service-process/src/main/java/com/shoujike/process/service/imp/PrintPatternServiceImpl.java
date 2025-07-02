@@ -2,6 +2,7 @@ package com.shoujike.process.service.imp;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.shoujike.common.config.FileStorageConfig;
 import com.shoujike.common.exception.BusinessException;
 import com.shoujike.common.exception.EntityNotFoundException;
 import jakarta.transaction.Transactional;
@@ -28,12 +29,12 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor(onConstructor = @__(@Autowired))
+@RequiredArgsConstructor
 public class PrintPatternServiceImpl implements PrintPatternService {
 
     private final PrintPatternMapper printPatternMapper;
     private final ObjectMapper objectMapper;
-
+    private final FileStorageConfig fileStorageConfig;
     @Override
     @Transactional
     public PrintPatternDTO createPrintPattern(PrintPatternCreateDTO createDTO) throws BusinessException {
@@ -43,6 +44,9 @@ public class PrintPatternServiceImpl implements PrintPatternService {
         }
 
         PrintPattern pattern = new PrintPattern();
+        pattern.setPlanId(createDTO.getPlanId());
+        pattern.setTaskId(createDTO.getTaskId());
+        pattern.setDeviceId(createDTO.getDeviceId());
         pattern.setPatternCode(createDTO.getPatternCode());
         pattern.setPatternName(createDTO.getPatternName());
         pattern.setMachineModel(createDTO.getMachineModel());
@@ -62,21 +66,46 @@ public class PrintPatternServiceImpl implements PrintPatternService {
             throw new EntityNotFoundException("印刷图案不存在");
         }
 
-        // 检查图案编号唯一性（如果变更）
-        if (!pattern.getPatternCode().equals(updateDTO.getPatternCode()) &&
-                printPatternMapper.findByPatternCode(updateDTO.getPatternCode()) != null) {
-            throw new BusinessException("新图案编号已存在");
+        // 新增：如果更新了图片，删除旧图片
+        if (updateDTO.getImageUrl() != null && !updateDTO.getImageUrl().equals(pattern.getImageUrl())) {
+            deleteOldImage(pattern.getImageUrl()); // 需要实现旧图片删除逻辑
         }
 
+        // 保持原有验证逻辑不变
+        if (updateDTO.getPatternCode() != null) {
+            // 使用安全比较方式
+            boolean codeChanged = !updateDTO.getPatternCode().equals(pattern.getPatternCode());
+            // 原记录patternCode可能为null时，使用Objects.equals更安全
+            boolean codeExists = printPatternMapper.findByPatternCode(updateDTO.getPatternCode()) != null;
+
+            if (codeChanged && codeExists) {
+                throw new BusinessException("新图案编号已存在");
+            }
+        }
+
+        // 更新所有字段（包含imageUrl）
+        pattern.setImageUrl(updateDTO.getImageUrl());
         pattern.setPatternCode(updateDTO.getPatternCode());
         pattern.setPatternName(updateDTO.getPatternName());
         pattern.setMachineModel(updateDTO.getMachineModel());
-        pattern.setImageUrl(updateDTO.getImageUrl());
         pattern.setDefaultPrintSpeed(updateDTO.getDefaultPrintSpeed());
         pattern.setDefaultPressure(updateDTO.getDefaultPressure());
 
         printPatternMapper.updateById(pattern);
         return convertToDTO(pattern);
+    }
+
+    // 新增旧图片删除方法
+    private void deleteOldImage(String imageUrl) throws BusinessException {
+        if (imageUrl == null || imageUrl.isEmpty()) {
+            return; // 跳过空值的URL处理
+        }
+        try {
+            Path oldImagePath = Paths.get(fileStorageConfig.getDir() + imageUrl.replace("/uploads/patterns/", ""));
+            Files.deleteIfExists(oldImagePath);
+        } catch (IOException e) {
+            throw new BusinessException("旧图片删除失败: " + e.getMessage());
+        }
     }
 
     @Override
@@ -145,8 +174,8 @@ public class PrintPatternServiceImpl implements PrintPatternService {
     }
 
     public String storeImage(MultipartFile file) throws BusinessException {
+        String uploadDir = fileStorageConfig.getDir();
         try {
-            String uploadDir = "/opt/uploads/patterns/";  // 建议通过配置注入
             String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
             Path filePath = Paths.get(uploadDir + fileName);
 
@@ -158,4 +187,5 @@ public class PrintPatternServiceImpl implements PrintPatternService {
             throw new BusinessException("文件上传失败: " + e.getMessage());
         }
     }
+
 }

@@ -19,9 +19,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -37,6 +40,9 @@ public class ProductionController {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private RestTemplate restTemplate;
 
     // ------------------- 生产计划管理 -------------------
     @PostMapping("/plans")
@@ -93,8 +99,39 @@ public class ProductionController {
             @RequestParam Integer planId) {
 
         ProductionTask task = taskService.createTask(createDTO, planId);
+
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("taskId", task.getId());
+        params.put("planId", task.getPlanId());
+        params.put("deviceId", task.getDeviceId());
+
+        // 根据工序类型选择接口路径
+        String processType = createDTO.getProcessType();
+        if ("注塑".equals(processType)) {
+            restTemplate.postForObject(
+                    "http://service-process/api/v1/process/injection-params",
+                    params,
+                    Void.class
+            );
+        } else if ("印刷".equals(processType)) {
+            restTemplate.postForObject(
+                    "http://service-process/api/v1/process/print-patterns",
+                    params,
+                    Void.class
+            );
+        }
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(convertToTaskDTO(task));
+    }
+
+    @PutMapping("/tasks/{id}")
+    public ResponseEntity<Void> updateTask(
+            @PathVariable Integer id,
+            @Valid @RequestBody TaskUpdateDTO dto)throws EntityNotFoundException  {
+        taskService.updateTask(id, dto);
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/plans/code-to-id")
@@ -120,6 +157,7 @@ public class ProductionController {
     private TaskDTO convertToDTO(ProductionTask task) {
         TaskDTO dto = new TaskDTO();
         dto.setId(task.getId());
+        dto.setTaskCode(task.getTaskCode());
         dto.setPlanId(task.getPlanId());
         dto.setDeviceId(task.getDeviceId());
         dto.setProcessType(task.getProcessType());

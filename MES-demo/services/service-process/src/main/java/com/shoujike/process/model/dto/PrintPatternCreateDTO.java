@@ -9,13 +9,13 @@ import java.beans.Transient;
 
 @Data
 public class PrintPatternCreateDTO {
-    @NotBlank(message = "图案编号不能为空")
+    private String planId;
+    private String taskId;
+    private String deviceId;
     private String patternCode;
 
-    @NotBlank(message = "图案名称不能为空")
     private String patternName;
 
-    @NotBlank(message = "适用机型不能为空")
     private String machineModel;
 
     private String imageUrl;  // 新增字段用于存储图片路径

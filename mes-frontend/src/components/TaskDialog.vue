@@ -14,26 +14,51 @@
       label-position="left"
       status-icon
     >
-      <el-form-item label="计划编号" prop="planCode">
-       <el-select v-model="form.planCode" placeholder="请选择计划编号" filterable>
-  <el-option
-    v-for="plan in planOptions"
-    :key="plan.value"
-    :label="plan.label"
-    :value="plan.value"
-  />
-</el-select>
 
+      <el-form-item label="计划编号" prop="planCode">
+        <el-select 
+          v-model="form.planCode" 
+          placeholder="请选择计划编号" 
+          filterable
+          :disabled="isEditing"  
+        >
+          <el-option
+            v-for="plan in planOptions"
+            :key="plan.value"
+            :label="plan.label"
+            :value="plan.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="任务编号" prop="taskCode">
+        <el-input 
+          v-model="form.taskCode" 
+          placeholder="任务编号" 
+          :disabled="isEditing"
+        />
       </el-form-item>
 
       <el-form-item label="工序类型" prop="processType">
-        <el-select v-model="form.processType" placeholder="请选择工序类型">
+        <el-select 
+          v-model="form.processType" 
+          placeholder="请选择工序类型"
+          :disabled="isEditing"  
+        >
           <el-option
             v-for="type in processTypes"
             :key="type"
             :label="type"
             :value="type"
           />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="状态" prop="status">
+        <el-select v-model="form.status" placeholder="请选择状态">
+          <el-option label="待下发" value="待下发" />
+          <el-option label="进行中" value="进行中" />
+          <el-option label="已完成" value="已完成" />
         </el-select>
       </el-form-item>
 
@@ -80,6 +105,10 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
+  taskOptions: {
+    type: Array,
+    default: () => []
+  },
   processTypes: {
     type: Array,
     default: () => []
@@ -95,29 +124,38 @@ const emit = defineEmits(['update:visible', 'submit'])
 
 const taskFormRef = ref(null)
 
+// 修改表单初始值
 const form = reactive({
-  taskId: '',
+  taskCode: `TASK-${Date.now().toString().slice(-6)}`,
   planCode: '',
   processType: '',
   deviceCode: '',
   quantity: 1,
-
+  status: '待下发'  // 新增状态
 })
 
+// 修改表单验证规则
 const rules = {
+  taskCode: [{ required: true, message: '任务编号不能为空', trigger: 'blur' }],
   planCode: [{ required: true, message: '请选择计划编号', trigger: 'change' }],
   processType: [{ required: true, message: '请选择工序类型', trigger: 'change' }],
   deviceCode: [{ required: true, message: '请选择设备编号', trigger: 'change' }],
   quantity: [{ required: true, message: '请输入任务数量', trigger: 'blur' }],
-  
+  status: [{ required: true, message: '请选择状态', trigger: 'change' }]  // 新增状态必填验证
 }
 
-// 监听外部传入 modelValue（用于编辑）
+// 修改监听外部传入 modelValue 的逻辑
 watch(
   () => props.modelValue,
   (newVal) => {
     if (newVal) {
+      // 保存当前默认值
+      const defaultTaskCode = form.taskCode
       Object.assign(form, newVal)
+      // 如果是新建任务，恢复默认任务编号
+      if (!props.isEditing) {
+        form.taskCode = defaultTaskCode
+      }
     } else {
       resetForm()
     }
@@ -131,6 +169,7 @@ function resetForm() {
   }
   Object.assign(form, {
     taskId: '',
+    taskCode: '',
     planCode: '',
     processType: '',
     deviceCode: '',
