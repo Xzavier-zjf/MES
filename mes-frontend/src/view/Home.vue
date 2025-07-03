@@ -126,6 +126,12 @@ const navItems = ref([
 
 const planTrendOption = ref({
   title: { text: '计划下发趋势', left: 'center' },
+  tooltip: {
+    trigger: 'axis',
+    formatter: function(params) {
+      return `日期: ${params[0].axisValue}<br/>计划数: ${params[0].data}`
+    }
+  },
   xAxis: { type: 'category', data: ['6月14日', '6月15日', '6月16日', '6月17日', '6月18日'] },
   yAxis: { type: 'value' },
   series: [
