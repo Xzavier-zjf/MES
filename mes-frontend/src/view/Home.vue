@@ -1,7 +1,7 @@
 <template>
   <div class="dashboard">
     <HeaderSection 
-    title="欢迎使用MES生产管理平台"
+    title="欢迎使用MES手机壳生产管理平台"
     subtitle=" 当前环境：注塑车间 · 实时监控与管理中心"
     :showStats="false"
     />
