@@ -216,40 +216,45 @@ const loadDevices = async () => {
     ElMessage.error(`加载设备失败: ${err.message}`)
   }
 }
+//设备状态转换
 
 // 在提交任务时检查设备状态
 const submitTask = async (data) => {
   try {
     const planId = planMap.value[data.planCode]
     const deviceId = deviceMap.value[data.deviceCode]
-    if (!planId || !deviceId) return ElMessage.error('请选择有效的计划或设备编号')
 
-    // 检查设备状态
+    if (!planId || !deviceId) {
+      return ElMessage.error('请选择有效的计划或设备编号')
+    }
+
+    // 1️⃣ 获取设备状态
     const deviceRes = await fetch(`http://localhost:8080/api/v1/equipment/devices/${deviceId}`)
     if (!deviceRes.ok) throw new Error('获取设备状态失败')
     const device = await deviceRes.json()
-    
 
-    // 定义工序类型与设备类型的映射关系
+    // 2️⃣ 校验设备是否空闲
+    if (device.status !== '空闲') {
+      return ElMessage.error(`设备当前状态为 ${device.status}，无法分配任务`)
+    }
+
+    // 3️⃣ 校验设备类型与工序类型是否匹配
     const processToDeviceType = {
       '注塑': 'INJ',
-      '印刷': 'PRT', 
+      '印刷': 'PRT',
       '组装': 'ASM',
       '质检': 'QC',
       '包装': 'PKG'
     }
-    if (device.status !== '空闲') {
-      return ElMessage.error(`设备当前状态为${device.status}，无法分配任务`)
-    }
-
-    // 检查设备类型是否匹配工序类型
     const expectedPrefix = processToDeviceType[data.processType]
     if (expectedPrefix && !device.deviceCode.startsWith(expectedPrefix)) {
-      return ElMessage.error(`设备类型不匹配，${data.processType}工序需要使用${expectedPrefix}开头的设备`)
+      return ElMessage.error(`设备类型不匹配，${data.processType} 工序需要使用 ${expectedPrefix} 开头的设备`)
     }
-    
+
     let res
+
     if (isEditing.value) {
+      // ✅ 编辑任务
       if (!data.id) return ElMessage.error('任务ID无效，无法更新')
 
       res = await fetch(`http://localhost:8080/api/v1/production/tasks/${data.id}`, {
@@ -265,23 +270,18 @@ const submitTask = async (data) => {
           status: data.status
         })
       })
-      
-      // 检查响应状态
+
       if (!res.ok) throw new Error('更新失败')
-      
-      // 检查响应是否有内容
+
       const text = await res.text()
       if (!text) {
-        // 空响应，直接认为更新成功
         ElMessage.success('任务更新成功')
         dialogVisible.value = false
-        await filterTasks() // 刷新任务列表
+        await filterTasks()
         return
       }
-      
-      // 尝试解析JSON
+
       const task = JSON.parse(text)
-      // 更新tasks列表中对应任务
       const index = tasks.value.findIndex(t => t.Id === data.Id)
       if (index >= 0) {
         tasks.value[index] = {
@@ -292,9 +292,10 @@ const submitTask = async (data) => {
           status: data.status
         }
       }
+
       ElMessage.success('任务更新成功')
     } else {
-      // 新建任务
+      // ✅ 新建任务
       res = await fetch(`http://localhost:8080/api/v1/production/tasks?planId=${planId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -308,9 +309,10 @@ const submitTask = async (data) => {
         })
       })
 
-      if (!res.ok) throw new Error('创建失败')
-      
+      if (!res.ok) throw new Error('任务创建失败')
+
       const task = await res.json()
+
       tasks.value.push({
         ...task,
         taskCode: data.taskCode,
@@ -318,15 +320,32 @@ const submitTask = async (data) => {
         deviceCode: data.deviceCode,
         status: data.status || '待下发'
       })
-      ElMessage.success('任务创建成功')
-      dialogVisible.value = false  // 添加这行关闭弹窗
-      await filterTasks()  // 刷新任务列表
+
+      // ✅ 4️⃣ 创建成功后更新设备状态为“运行中”
+      const updateRes = await fetch(`http://localhost:8080/api/v1/equipment/devices/${deviceId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: '运行中' })
+      })
+
+      if (!updateRes.ok) {
+        ElMessage.warning('任务创建成功，但设备状态更新失败')
+      } else {
+        ElMessage.success('任务创建成功，设备状态已更新为运行中')
+      }
+
+      dialogVisible.value = false
+      await filterTasks()
     }
+
   } catch (err) {
     console.error(err)
     ElMessage.error(isEditing.value ? '任务更新失败' : '任务提交失败')
   }
 }
+
 
 onMounted(async () => {
   try {
