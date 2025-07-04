@@ -43,7 +43,7 @@ cd auth-service && mvn spring-boot:run
 ```
 
 # 3，前端启动
-先安装axios：npm i axios
+先安装axios：npm i
 后启动：npm run dev
 
 ## 接口文档

@@ -116,8 +116,6 @@ const stats = computed(() => [
   }
 ])
 
-
-
 const navItems = ref([
   { name: '生产计划管理', path: '/plan' },
   { name: '任务管理', path: '/task' },
@@ -128,6 +126,12 @@ const navItems = ref([
 
 const planTrendOption = ref({
   title: { text: '计划下发趋势', left: 'center' },
+  tooltip: {
+    trigger: 'axis',
+    formatter: function(params) {
+      return `日期: ${params[0].axisValue}<br/>计划数: ${params[0].data}`
+    }
+  },
   xAxis: { type: 'category', data: ['6月14日', '6月15日', '6月16日', '6月17日', '6月18日'] },
   yAxis: { type: 'value' },
   series: [
@@ -145,10 +149,9 @@ const deviceStatusOption = ref({
       type: 'pie',
       radius: '60%',
       data: [
-        { value: appStore.idlingDevices, name: '空闲' },
-        { value: appStore.runningDevices, name: '运行中' },
-        { value: appStore.pendingDevices, name: '故障' },
-        
+        { value: 10, name: '运行中' },
+        { value: 2, name: '故障' },
+        { value: 3, name: '空闲' }
       ]
     }
   ]
@@ -160,7 +163,7 @@ const deviceUsageOption = ref({
   tooltip: { trigger: 'axis' },
   xAxis: {
     type: 'category',
-    data: appStore.devicesName
+    data: ['设备A', '设备B', '设备C', '设备D', '设备E']
   },
   yAxis: {
     type: 'value',
@@ -170,7 +173,7 @@ const deviceUsageOption = ref({
     {
       name: '运行小时',
       type: 'bar',
-      data: appStore.runtimeMinutes,
+      data: [120, 98, 135, 80, 90],
       itemStyle: { color: '#409EFF' }
     }
   ]
@@ -204,10 +207,8 @@ const productionCompletionOption = ref({
       },
       labelLine: { show: false },
       data: [
-        { value: appStore.inProgressPlans, name: '进行中' },
-        { value: appStore.completedPlans, name: '已完成' },
-        { value: appStore.pendingPlans, name: '未完成' },
-
+        { value: 75, name: '已完成' },
+        { value: 25, name: '未完成' }
       ]
     }
   ]
