@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { getPlans } from '@/api/plans'
+import { getTasks } from '@/api/tasks'
+import { getDevices } from '@/api/devices'
 
-
-  
 export const useAppStore = defineStore('app', () => {
   // 生产计划数据
   const plans = ref([])
@@ -41,24 +42,16 @@ export const useAppStore = defineStore('app', () => {
   const fetchAllData = async () => {
     try {
       // 并行获取所有数据
-      const [plansRes, tasksRes, devicesRes] = await Promise.all([
-        fetch('http://localhost:8080/api/v1/production/plans'),
-        fetch('http://localhost:8080/api/v1/production/tasks'),
-        fetch('http://localhost:8080/api/v1/equipment/devices')
+      const [plansData, tasksData, devicesData] = await Promise.all([
+        getPlans(0, 1000),
+        getTasks({ page: 0, size: 1000 }),
+        getDevices({ page: 0, size: 1000 })
       ])
       
-      if (!plansRes.ok || !tasksRes.ok || !devicesRes.ok) {
-        throw new Error('获取数据失败')
-      }
-      
-      const plans = await plansRes.json()
-      const tasks = await tasksRes.json()
-      const devices = await devicesRes.json()
-      
       // 更新store状态
-      updatePlans(plans.content || plans)
-      updateTasks(tasks.content || tasks)
-      updateDevices(devices.content || devices)
+      updatePlans(plansData.content || plansData)
+      updateTasks(tasksData.content || tasksData)
+      updateDevices(devicesData.content || devicesData)
     } catch (error) {
       console.error('获取数据失败:', error)
     }

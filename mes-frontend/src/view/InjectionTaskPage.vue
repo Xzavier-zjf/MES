@@ -120,7 +120,10 @@
 import HeaderSection from '@/components/HeaderSection.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import axios from 'axios'
+import { getInjectionParams, updateInjectionParam } from '@/api/injection'
+import { getPlans } from '@/api/plans'
+import { getTasks } from '@/api/tasks'
+import { getDevices } from '@/api/devices'
 
 const route = useRoute()
 
@@ -171,10 +174,10 @@ const openDialog = (task) => {
 }
 
 // 更新注塑参数
-const updateInjectionParam = async (id, updateDTO) => {
+const updateInjectionParamLocal = async (id, updateDTO) => {
   try {
-    const response = await axios.put(`http://localhost:8080/api/v1/process/injection-params/${id}`, updateDTO)
-    return response.data
+    const response = await updateInjectionParam(id, updateDTO)
+    return response
   } catch (error) {
     console.error('更新注塑参数失败:', error)
     throw error
@@ -203,7 +206,7 @@ const submitParams = async () => {
       materialTemperature: form.value.materialTemperature
     }
     // 调用更新接口
-    const updatedData = await updateInjectionParam(form.value.id, updateDTO)
+    const updatedData = await updateInjectionParamLocal(form.value.id, updateDTO)
     // 更新本地任务列表
     const index = tasks.value.findIndex(t => t.id === form.value.id)
     if (index !== -1) {
@@ -232,15 +235,14 @@ const resetFilter = () => {
 // 获取注塑参数列表
 const fetchInjectionParams = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/v1/process/injection-params/all', {
-      params: {
-        page: currentPage.value - 1,
-        size: pageSize.value,
-        sort: 'id,desc'
-      }
-    })
-    tasks.value = response.data.content
-    total.value = response.data.totalElements
+    const params = {
+      page: currentPage.value - 1,
+      size: pageSize.value,
+      sort: 'id,desc'
+    }
+    const response = await getInjectionParams(params)
+    tasks.value = response.content
+    total.value = response.totalElements
   } catch (error) {
     console.error('获取注塑参数列表失败:', error)
   }
@@ -267,9 +269,9 @@ const deviceMap = ref({})
 // 获取计划映射
 const loadPlanMap = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/v1/production/plans?page=0&size=1000')
+    const response = await getPlans(0, 1000)
     planMap.value = {}
-    response.data.content.forEach(plan => {
+    response.content.forEach(plan => {
       planMap.value[plan.id] = plan.planCode
     })
   } catch (error) {
@@ -280,9 +282,9 @@ const loadPlanMap = async () => {
 // 获取任务映射
 const loadTaskMap = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/v1/production/tasks?page=0&size=1000')
+    const response = await getTasks({ page: 0, size: 1000 })
     taskMap.value = {}
-    response.data.content.forEach(task => {
+    response.content.forEach(task => {
       taskMap.value[task.id] = task.taskCode
     })
   } catch (error) {
@@ -293,9 +295,9 @@ const loadTaskMap = async () => {
 // 获取设备映射
 const loadDeviceMap = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/v1/equipment/devices?page=0&size=1000')
+    const response = await getDevices({ page: 0, size: 1000 })
     deviceMap.value = {}
-    response.data.content.forEach(device => {
+    response.content.forEach(device => {
       deviceMap.value[device.id] = device.deviceCode
     })
   } catch (error) {

@@ -41,7 +41,7 @@
     <DeviceDetailDialog
       v-model:visible="detailVisible"
       :device="selectedDevice"
-      @updateStatus="updateDeviceStatus"
+      @updateStatus="handleUpdateDeviceStatus"
       @filterDevices="filterDevices"  
     />
 
@@ -119,13 +119,14 @@
 
 <script setup>
 import HeaderSection from '@/components/HeaderSection.vue'
-import { ref, computed, onMounted } from 'vue' // 添加onMounted导入
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import DeviceFilter from '@/components/DeviceFilter.vue'
 import DeviceCard from '@/components/DeviceCard.vue'
 import DeviceDetailDialog from '@/components/DeviceDetailDialog.vue'
 import { ElMessage } from 'element-plus'
 import { useAppStore } from '@/stores'
+import { getDevices, getDeviceById, createDevice } from '@/api/devices'
 const appStore = useAppStore()
 
 const router = useRouter()
@@ -162,14 +163,14 @@ const filteredDevices = ref([])
 
 const fetchFilteredDevices = async () => {
   try {
-    let url = 'http://localhost:8080/api/v1/equipment/devices?'
-    if (filters.value.name) url += `name=${encodeURIComponent(filters.value.name)}&`
-    if (filters.value.status) url += `status=${filters.value.status}`
+    const params = {
+      name: filters.value.name,
+      status: filters.value.status,
+      page: 0,
+      size: 1000
+    }
     
-    const response = await fetch(url)
-    if (!response.ok) throw new Error('获取设备列表失败')
-    
-    const data = await response.json()
+    const data = await getDevices(params)
     filteredDevices.value = data.content || data
   } catch (error) {
     console.error('过滤设备错误:', error)
@@ -198,11 +199,7 @@ const selectedDevice = ref(null)
 
 const viewDetail = async (device) => {
   try {
-    const response = await fetch(`http://localhost:8080/api/v1/equipment/devices/${device.id}`)
-    if (!response.ok) {
-      throw new Error('获取设备详情失败')
-    }
-    selectedDevice.value = await response.json()
+    selectedDevice.value = await getDeviceById(device.id)
     detailVisible.value = true
   } catch (error) {
     console.error('获取设备详情错误:', error)
@@ -254,19 +251,7 @@ const addDevice = async () => {
   }
   
   try {
-    const response = await fetch('http://localhost:8080/api/v1/equipment/devices', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(newDevice.value)
-    })
-
-    if (!response.ok) {
-      throw new Error('添加设备失败')
-    }
-
-    const data = await response.json()
+    const data = await createDevice(newDevice.value)
     devices.value.push(data)
     ElMessage.success('设备添加成功')
     closeAddDeviceDialog()
@@ -285,7 +270,7 @@ const addDevice = async () => {
     ElMessage.error(error.message || '添加设备失败')
   }
 }
-const updateDeviceStatus = (newStatus) => {
+const handleUpdateDeviceStatus = (newStatus) => {
   if (selectedDevice.value) {
     // 找到该设备并更新其状态
     const index = devices.value.findIndex(d => d.id === selectedDevice.value.id)

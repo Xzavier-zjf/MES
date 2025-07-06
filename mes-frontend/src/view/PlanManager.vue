@@ -74,7 +74,7 @@
         <el-table-column label="操作" width="160">
           <template #default="scope">
             <el-button size="small" type="primary" plain @click="editPlan(scope.row)" >编辑</el-button>
-            <el-button size="small" type="danger" plain @click="deletePlan(scope.row)">删除</el-button>
+            <el-button size="small" type="danger" plain @click="handleDeletePlan(scope.row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -134,6 +134,7 @@
 import HeaderSection from '@/components/HeaderSection.vue'
 import { ref, computed, onMounted } from 'vue'
 import dayjs from 'dayjs'
+import { getPlans, createPlan, updatePlan, deletePlan } from '@/api/plans'
 
 
 // 优先级映射：文字 <-> 数字
@@ -195,8 +196,7 @@ const navItems = [
 
 const fetchPlans = async () => {
   try {
-    const res = await fetch(`http://localhost:8080/api/v1/production/plans?page=${page.value - 1}&size=${size.value}`)
-    const data = await res.json()
+    const data = await getPlans(page.value - 1, size.value)
 
     plans.value = data.content.map(item => {
       const priorityNum = Number(item.priority)
@@ -262,12 +262,6 @@ const submitForm = async () => {
     form.value.priority
   ) {
     try {
-      const url = isEditMode.value
-        ? `http://localhost:8080/api/v1/production/plans/${form.value.id}`
-        : 'http://localhost:8080/api/v1/production/plans'
-
-      const method = isEditMode.value ? 'PUT' : 'POST'
-
       const payload = {
         planCode: form.value.planCode,
         productName: form.value.productName,
@@ -276,13 +270,11 @@ const submitForm = async () => {
         priority: priorityMap[form.value.priority], // 文字转数字
       }
 
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      if (!response.ok) throw new Error(isEditMode.value ? '修改失败' : '添加失败')
+      if (isEditMode.value) {
+        await updatePlan(form.value.id, payload)
+      } else {
+        await createPlan(payload)
+      }
 
       dialogVisible.value = false
       fetchPlans()
@@ -295,16 +287,11 @@ const submitForm = async () => {
   }
 }
 
-const deletePlan = async (row) => {
+const handleDeletePlan = async (row) => {
   if (!confirm(`确定要删除计划 ${row.planCode} 吗？`)) return
 
   try {
-    const response = await fetch(`http://localhost:8080/api/v1/production/plans/${row.id}`, {
-      method: 'DELETE',
-    })
-
-    if (!response.ok) throw new Error('删除失败')
-
+    await deletePlan(row.id)
     fetchPlans()
   } catch (err) {
     console.error('删除失败', err)

@@ -20,7 +20,7 @@
     <TaskTable
       :tasks="tasks"
       @edit="editTask"
-      @delete="deleteTask"
+      @delete="handleDeleteTask"
     />
 
     <TaskDialog
@@ -37,12 +37,16 @@
 </template>
 
 <script setup>
-import { ref, computed,onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import HeaderSection from '@/components/HeaderSection.vue'
 import TaskFilter from '@/components/TaskFilter.vue'
 import TaskTable from '@/components/TaskTable.vue'
 import TaskDialog from '@/components/TaskDialog.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getTasks, createTask, updateTask, deleteTask } from '@/api/tasks'
+import { getPlans } from '@/api/plans'
+import { getDevices, updateDeviceStatus, getDeviceById } from '@/api/devices'
 
 const filters = ref({
   planCode: '',
@@ -85,17 +89,15 @@ const pendingTasks = computed(() => tasks.value.filter(t => t.status === '待下
 // 获取任务列表
 const filterTasks = async () => {
   try {
-    const params = new URLSearchParams()
-    if (filters.value.planCode) params.append('planCode', filters.value.planCode.trim())
-    if (filters.value.processType) params.append('processType', filters.value.processType.trim())
-    if (filters.value.status) params.append('status', filters.value.status.trim())
-    params.append('page', '0')
-    params.append('size', '100')
+    const params = {
+      planCode: filters.value.planCode?.trim(),
+      processType: filters.value.processType?.trim(),
+      status: filters.value.status?.trim(),
+      page: 0,
+      size: 100
+    }
 
-    const res = await fetch(`http://localhost:8080/api/v1/production/tasks?${params.toString()}`)
-    if (!res.ok) throw new Error(`服务器异常: ${res.status}`)
-
-    const data = await res.json()
+    const data = await getTasks(params)
     tasks.value = data.content.map(task => {
       const planCode = reversePlanMap.value[task.planId] || ''
       const deviceCode = Object.keys(deviceMap.value).find(code => deviceMap.value[code] === task.deviceId) || ''
@@ -146,16 +148,12 @@ const editTask = (task) => {
 
 
 // 删除任务
-const deleteTask = async (task) => {
+const handleDeleteTask = async (task) => {
   try {
     await ElMessageBox.confirm(`确定要删除任务 ${task.taskCode} 吗？`, '删除确认', {
       confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning'
     })
-    const res = await fetch(`http://localhost:8080/api/v1/production/tasks/${task.id}`, { 
-      method: 'DELETE' 
-    })
-    if (!res.ok) throw new Error('删除失败')
-
+    await deleteTask(task.id)
     tasks.value = tasks.value.filter(t => t.id !== task.id)
     ElMessage.success('任务删除成功')
   } catch (err) {
@@ -169,9 +167,7 @@ const deleteTask = async (task) => {
 // 载入计划数据
 const loadPlans = async () => {
   try {
-    const res = await fetch('http://localhost:8080/api/v1/production/plans?page=0&size=100')
-    if (!res.ok) throw new Error('获取计划失败')
-    const data = await res.json()
+    const data = await getPlans(0, 100)
 
     planMap.value = {}
     reversePlanMap.value = {}
@@ -196,13 +192,10 @@ const loadPlans = async () => {
 // 载入设备数据
 const loadDevices = async () => {
   try {
-    const res = await fetch('http://localhost:8080/api/v1/equipment/devices?page=0&size=100')
-    if (!res.ok) throw new Error('获取设备失败')
-    const data = await res.json()
+    const data = await getDevices({ page: 0, size: 100 })
 
     deviceMap.value = {}
     deviceOptions.value = []
-
 
     data.content.forEach(device => {
       deviceMap.value[device.deviceCode] = device.id
@@ -229,9 +222,7 @@ const submitTask = async (data) => {
     }
 
     // 1️⃣ 获取设备状态
-    const deviceRes = await fetch(`http://localhost:8080/api/v1/equipment/devices/${deviceId}`)
-    if (!deviceRes.ok) throw new Error('获取设备状态失败')
-    const device = await deviceRes.json()
+    const device = await getDeviceById(deviceId)
 
     // 2️⃣ 校验设备是否空闲
     if (device.status !== '空闲') {
@@ -251,67 +242,36 @@ const submitTask = async (data) => {
       return ElMessage.error(`设备类型不匹配，${data.processType} 工序需要使用 ${expectedPrefix} 开头的设备`)
     }
 
-    let res
-
     if (isEditing.value) {
       // ✅ 编辑任务
       if (!data.id) return ElMessage.error('任务ID无效，无法更新')
 
-      res = await fetch(`http://localhost:8080/api/v1/production/tasks/${data.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: data.id,
-          taskCode: data.taskCode,
-          planId,
-          deviceId,
-          processType: data.processType,
-          quantity: data.quantity,
-          status: data.status
-        })
-      })
-
-      if (!res.ok) throw new Error('更新失败')
-
-      const text = await res.text()
-      if (!text) {
-        ElMessage.success('任务更新成功')
-        dialogVisible.value = false
-        await filterTasks()
-        return
+      const taskData = {
+        id: data.id,
+        taskCode: data.taskCode,
+        planId,
+        deviceId,
+        processType: data.processType,
+        quantity: data.quantity,
+        status: data.status
       }
 
-      const task = JSON.parse(text)
-      const index = tasks.value.findIndex(t => t.Id === data.Id)
-      if (index >= 0) {
-        tasks.value[index] = {
-          ...task,
-          taskCode: data.taskCode,
-          planCode: data.planCode,
-          deviceCode: data.deviceCode,
-          status: data.status
-        }
-      }
-
+      await updateTask(data.id, taskData)
       ElMessage.success('任务更新成功')
+      dialogVisible.value = false
+      await filterTasks()
     } else {
       // ✅ 新建任务
-      res = await fetch(`http://localhost:8080/api/v1/production/tasks?planId=${planId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          taskCode: data.taskCode,
-          planId,
-          deviceId,
-          processType: data.processType,
-          quantity: data.quantity,
-          status: data.status
-        })
-      })
+      const taskData = {
+        taskCode: data.taskCode,
+        planId,
+        deviceId,
+        processType: data.processType,
+        quantity: data.quantity,
+        status: data.status
+      }
 
-      if (!res.ok) throw new Error('任务创建失败')
-
-      const task = await res.json()
+      const task = await createTask(taskData)
 
       tasks.value.push({
         ...task,
@@ -322,18 +282,11 @@ const submitTask = async (data) => {
       })
 
       // ✅ 4️⃣ 创建成功后更新设备状态为“运行中”
-      const updateRes = await fetch(`http://localhost:8080/api/v1/equipment/devices/${deviceId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status: '运行中' })
-      })
-
-      if (!updateRes.ok) {
-        ElMessage.warning('任务创建成功，但设备状态更新失败')
-      } else {
+      try {
+        await updateDeviceStatus(deviceId, '运行中')
         ElMessage.success('任务创建成功，设备状态已更新为运行中')
+      } catch (error) {
+        ElMessage.warning('任务创建成功，但设备状态更新失败')
       }
 
       dialogVisible.value = false

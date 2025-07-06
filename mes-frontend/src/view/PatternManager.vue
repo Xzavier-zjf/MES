@@ -148,8 +148,11 @@
 import HeaderSection from '@/components/HeaderSection.vue'
 import TopNavBar from '@/components/NavBar.vue'
 import { ref, computed, onMounted } from 'vue'
-import axios from 'axios'
 import { ElMessageBox } from 'element-plus'
+import { getPrintPatterns, updatePrintPattern, deletePrintPattern, createPrintPattern } from '@/api/pattern'
+import { getPlans } from '@/api/plans'
+import { getTasks } from '@/api/tasks'
+import { getDevices } from '@/api/devices'
 
 const dialogVisible = ref(false)
 const filters = ref({ patternCode: '', machine: '' })
@@ -207,18 +210,10 @@ const editPattern = (row) => {
 }
 
 // 更新印刷图案
-const updatePrintPattern = async (id, formData) => {
+const updatePrintPatternLocal = async (id, formData) => {
   try {
-    const response = await axios.put(
-      `http://localhost:8080/api/v1/process/print-patterns/${id}`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      }
-    );
-    return response.data;
+    const response = await updatePrintPattern(id, formData);
+    return response;
   } catch (error) {
     console.error('更新印刷图案失败:', error);
     throw error;
@@ -242,23 +237,15 @@ const savePattern = async () => {
 
     if (form.value.id) {
       // 编辑逻辑
-      const updatedData = await updatePrintPattern(form.value.id, formData);
+      const updatedData = await updatePrintPatternLocal(form.value.id, formData);
       const index = patterns.value.findIndex(p => p.id === form.value.id);
       if (index !== -1) {
         patterns.value[index] = { ...patterns.value[index], ...updatedData };
       }
     } else {
       // 新增逻辑
-      const response = await axios.post(
-        'http://localhost:8080/api/v1/process/print-patterns',
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        }
-      );
-      patterns.value.unshift(response.data);
+      const response = await createPrintPattern(formData);
+      patterns.value.unshift(response);
       total.value++;
     }
     dialogVisible.value = false;
@@ -276,15 +263,14 @@ const handleImageChange = (file) => {
 // 获取印刷图案列表
 const fetchPrintPatterns = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/v1/process/print-patterns/all', {
-      params: {
-        page: currentPage.value - 1,
-        size: pageSize.value,
-        sort: 'id,desc'
-      }
-    })
-    patterns.value = response.data.content
-    total.value = response.data.totalElements
+    const params = {
+      page: currentPage.value - 1,
+      size: pageSize.value,
+      sort: 'id,desc'
+    }
+    const response = await getPrintPatterns(params)
+    patterns.value = response.content
+    total.value = response.totalElements
   } catch (error) {
     console.error('获取印刷图案列表失败:', error)
   }
@@ -303,10 +289,9 @@ const handleSizeChange = (val) => {
 }
 
 // 删除印刷图案
-const deletePrintPattern = async (id) => {
+const deletePrintPatternLocal = async (id) => {
   try {
-    await axios.delete(`http://localhost:8080/api/v1/process/print-patterns/${id}`);
-
+    await deletePrintPattern(id);
   } catch (error) {
     console.error('删除印刷图案失败:', error);
     throw error;
@@ -325,7 +310,7 @@ const confirmDelete = async (row) => {
         type: 'warning',
       }
     );
-    await deletePrintPattern(row.id);
+    await deletePrintPatternLocal(row.id);
     // 更新本地图案列表
     const index = patterns.value.findIndex(p => p.id === row.id);
     if (index !== -1) {
@@ -347,9 +332,9 @@ const deviceMap = ref({})
 // 获取计划映射
 const loadPlanMap = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/v1/production/plans?page=0&size=1000')
+    const response = await getPlans(0, 1000)
     planMap.value = {}
-    response.data.content.forEach(plan => {
+    response.content.forEach(plan => {
       planMap.value[plan.id] = plan.planCode
     })
   } catch (error) {
@@ -360,9 +345,9 @@ const loadPlanMap = async () => {
 // 获取任务映射
 const loadTaskMap = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/v1/production/tasks?page=0&size=1000')
+    const response = await getTasks({ page: 0, size: 1000 })
     taskMap.value = {}
-    response.data.content.forEach(task => {
+    response.content.forEach(task => {
       taskMap.value[task.id] = task.taskCode
     })
   } catch (error) {
@@ -373,9 +358,9 @@ const loadTaskMap = async () => {
 // 获取设备映射
 const loadDeviceMap = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/v1/equipment/devices?page=0&size=1000')
+    const response = await getDevices({ page: 0, size: 1000 })
     deviceMap.value = {}
-    response.data.content.forEach(device => {
+    response.content.forEach(device => {
       deviceMap.value[device.id] = device.deviceCode
     })
   } catch (error) {
