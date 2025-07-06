@@ -26,7 +26,19 @@ export const createDevice = async (deviceData) => {
     body: JSON.stringify(deviceData),
   })
   if (!res.ok) throw new Error('创建设备失败')
-  return await res.json()
+  
+  // 检查响应体是否为空
+  const text = await res.text()
+  if (!text) {
+    throw new Error('创建设备失败：后端返回空响应')
+  }
+  
+  try {
+    return JSON.parse(text)
+  } catch (error) {
+    console.warn('后端返回非JSON格式响应:', text)
+    throw new Error('创建设备失败：响应格式错误')
+  }
 }
 
 export const updateDeviceStatus = async (id, status) => {
@@ -36,7 +48,19 @@ export const updateDeviceStatus = async (id, status) => {
     body: JSON.stringify({ status }),
   })
   if (!res.ok) throw new Error('更新设备状态失败')
-  return await res.json()
+  
+  // 检查响应体是否为空
+  const text = await res.text()
+  if (!text) {
+    return { success: true, message: '状态更新成功' }
+  }
+  
+  try {
+    return JSON.parse(text)
+  } catch (error) {
+    console.warn('后端返回非JSON格式响应:', text)
+    return { success: true, message: '状态更新成功' }
+  }
 }
 
 export const updateDevice = async (id, deviceData) => {
@@ -46,7 +70,19 @@ export const updateDevice = async (id, deviceData) => {
     body: JSON.stringify(deviceData),
   })
   if (!res.ok) throw new Error('更新设备失败')
-  return await res.json()
+  
+  // 检查响应体是否为空
+  const text = await res.text()
+  if (!text) {
+    return { success: true, message: '设备更新成功' }
+  }
+  
+  try {
+    return JSON.parse(text)
+  } catch (error) {
+    console.warn('后端返回非JSON格式响应:', text)
+    return { success: true, message: '设备更新成功' }
+  }
 }
 
 export const deleteDevice = async (id) => {

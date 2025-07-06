@@ -29,7 +29,7 @@
         >
             <el-option label="低" value="3" />
           <el-option label="中" value="2" />
-          <el-option label="高" value="1  " />
+          <el-option label="高" value="1" />
         </el-select>
         <el-select
           v-model="filter.status"
@@ -107,9 +107,9 @@
         </el-form-item>
         <el-form-item label="优先级">
           <el-select v-model="form.priority" placeholder="请选择">
-            <el-option label="高" value="1" />
-            <el-option label="中" value="2" />
-            <el-option label="低" value="3" />
+            <el-option label="高" value="高" />
+            <el-option label="中" value="中" />
+            <el-option label="低" value="低" />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
@@ -132,9 +132,10 @@
 
 <script setup>
 import HeaderSection from '@/components/HeaderSection.vue'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import dayjs from 'dayjs'
 import { getPlans, createPlan, updatePlan, deletePlan } from '@/api/plans'
+import { useAppStore } from '@/stores'
 
 
 // 优先级映射：文字 <-> 数字
@@ -159,11 +160,13 @@ const props = defineProps({
     default: '待下发'
   }
 })
-// 计算统计数据
-const totalPlans = computed(() => plans.value.length)
-const inProgress = computed(() => plans.value.filter(t => t.status === '进行中').length)
-const completed = computed(() => plans.value.filter(t => t.status === '已完成').length)
-const pending = computed(() => plans.value.filter(t => t.status === '待下发').length)
+const appStore = useAppStore()
+
+// 使用store的统计数据
+const totalPlans = computed(() => appStore.totalPlans)
+const inProgress = computed(() => appStore.inProgressPlans)
+const completed = computed(() => appStore.completedPlans)
+const pending = computed(() => appStore.pendingPlans)
 
 const dialogVisible = ref(false)
 const isEditMode = ref(false)
@@ -213,8 +216,15 @@ const fetchPlans = async () => {
   }
 }
 
-onMounted(() => {
-  fetchPlans()
+onMounted(async () => {
+  await fetchPlans()
+  // 启动自动刷新
+  appStore.startAutoRefresh(30000) // 30秒刷新一次
+})
+
+onUnmounted(() => {
+  // 停止自动刷新
+  appStore.stopAutoRefresh()
 })
 
 const handleSizeChange = (val) => {
@@ -242,18 +252,30 @@ const openDialog = () => {
 
 const editPlan = (row) => {
   isEditMode.value = true
+  console.log('编辑计划数据:', row)
+  console.log('优先级值:', row.priority, '类型:', typeof row.priority)
+  
+  // 确保优先级正确转换
+  const priorityNum = Number(row.priority)
+  const priorityText = reversePriorityMap[priorityNum]
+  
+  console.log('转换后的优先级:', { num: priorityNum, text: priorityText })
+  
   form.value = {
     id: row.id,
     planCode: row.planCode,
     productName: row.productName,
     totalQuantity: row.totalQuantity,
-    priority: reversePriorityMap[row.priority] || '',
+    priority: priorityText || '',
     status: row.status,
   }
   dialogVisible.value = true
 }
 
 const submitForm = async () => {
+  console.log('提交表单 - 当前模式:', isEditMode.value ? '编辑' : '新建')
+  console.log('表单数据:', form.value)
+  
   if (
     form.value.planCode &&
     form.value.productName &&
@@ -262,27 +284,64 @@ const submitForm = async () => {
     form.value.priority
   ) {
     try {
+      // 检查id
+      if (isEditMode.value && !form.value.id) {
+        alert('编辑模式下缺少计划ID，无法提交')
+        return
+      }
+      
+      // 确保优先级正确转换
+      const priorityText = form.value.priority
+      
+      if (!priorityText) {
+        throw new Error('请选择优先级')
+      }
+      
+      const priorityNum = priorityMap[priorityText]
+      
+      console.log('优先级转换详情:', {
+        formValue: priorityText,
+        mappedValue: priorityNum,
+        priorityMap: priorityMap
+      })
+      
+      if (priorityNum === undefined) {
+        throw new Error(`无效的优先级值: ${priorityText}`)
+      }
+      
       const payload = {
         planCode: form.value.planCode,
         productName: form.value.productName,
         totalQuantity: Number(form.value.totalQuantity),
         status: form.value.status,
-        priority: priorityMap[form.value.priority], // 文字转数字
+        priority: priorityNum, // 确保是数字
       }
-
+      
+      console.log('提交计划payload:', payload)
+      
       if (isEditMode.value) {
+        console.log('执行更新操作，ID:', form.value.id)
         await updatePlan(form.value.id, payload)
       } else {
+        console.log('执行创建操作')
         await createPlan(payload)
       }
-
+      
       dialogVisible.value = false
-      fetchPlans()
+      await fetchPlans()
+      console.log('操作成功完成')
     } catch (err) {
-      alert('提交失败，请检查后端接口')
-      console.error(err)
+      console.error('提交失败详细信息:', err)
+      alert('提交失败，请检查后端接口: ' + (err.message || '未知错误'))
     }
   } else {
+    console.log('表单验证失败，缺少字段:', {
+      planCode: !!form.value.planCode,
+      productName: !!form.value.productName,
+      totalQuantity: !!form.value.totalQuantity,
+      status: !!form.value.status,
+      priority: !!form.value.priority
+    })
     alert('请填写完整表单信息！')
   }
 }

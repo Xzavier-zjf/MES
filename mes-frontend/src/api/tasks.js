@@ -21,7 +21,19 @@ export const createTask = async (taskData) => {
     body: JSON.stringify(taskData),
   })
   if (!res.ok) throw new Error('创建任务失败')
-  return await res.json()
+  
+  // 检查响应体是否为空
+  const text = await res.text()
+  if (!text) {
+    throw new Error('创建任务失败：后端返回空响应')
+  }
+  
+  try {
+    return JSON.parse(text)
+  } catch (error) {
+    console.warn('后端返回非JSON格式响应:', text)
+    throw new Error('创建任务失败：响应格式错误')
+  }
 }
 
 export const updateTask = async (id, taskData) => {
@@ -31,7 +43,19 @@ export const updateTask = async (id, taskData) => {
     body: JSON.stringify(taskData),
   })
   if (!res.ok) throw new Error('更新任务失败')
-  return await res.text()
+  
+  // 检查响应体是否为空
+  const text = await res.text()
+  if (!text) {
+    return { success: true, message: '更新成功' }
+  }
+  
+  try {
+    return JSON.parse(text)
+  } catch (error) {
+    console.warn('后端返回非JSON格式响应:', text)
+    return { success: true, message: '更新成功' }
+  }
 }
 
 export const deleteTask = async (id) => {

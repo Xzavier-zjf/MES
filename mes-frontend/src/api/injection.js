@@ -35,7 +35,19 @@ export const updateInjectionParam = async (id, paramData) => {
     body: JSON.stringify(paramData),
   })
   if (!res.ok) throw new Error('更新注塑参数失败')
-  return await res.json()
+  
+  // 检查响应体是否为空
+  const text = await res.text()
+  if (!text) {
+    return { success: true, message: '参数更新成功' }
+  }
+  
+  try {
+    return JSON.parse(text)
+  } catch (error) {
+    console.warn('后端返回非JSON格式响应:', text)
+    return { success: true, message: '参数更新成功' }
+  }
 }
 
 export const deleteInjectionParam = async (id) => {

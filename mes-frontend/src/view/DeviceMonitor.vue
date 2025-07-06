@@ -126,7 +126,7 @@ import DeviceCard from '@/components/DeviceCard.vue'
 import DeviceDetailDialog from '@/components/DeviceDetailDialog.vue'
 import { ElMessage } from 'element-plus'
 import { useAppStore } from '@/stores'
-import { getDevices, getDeviceById, createDevice } from '@/api/devices'
+import { getDevices, getDeviceById, createDevice, updateDeviceStatus } from '@/api/devices'
 const appStore = useAppStore()
 
 const router = useRouter()
@@ -270,15 +270,33 @@ const addDevice = async () => {
     ElMessage.error(error.message || '添加设备失败')
   }
 }
-const handleUpdateDeviceStatus = (newStatus) => {
+const handleUpdateDeviceStatus = async (newStatus) => {
   if (selectedDevice.value) {
-    // 找到该设备并更新其状态
-    const index = devices.value.findIndex(d => d.id === selectedDevice.value.id)
-    if (index !== -1) {
-      devices.value[index].status = newStatus
+    try {
+      await updateDeviceStatus(selectedDevice.value.id, newStatus)
+      
+      // 更新本地设备列表中的状态
+      const deviceIndex = devices.value.findIndex(d => d.id === selectedDevice.value.id)
+      if (deviceIndex !== -1) {
+        devices.value[deviceIndex].status = newStatus
+      }
+      
+      // 更新筛选后的设备列表中的状态
+      const filteredIndex = filteredDevices.value.findIndex(d => d.id === selectedDevice.value.id)
+      if (filteredIndex !== -1) {
+        filteredDevices.value[filteredIndex].status = newStatus
+      }
+      
+      // 更新选中的设备状态
       selectedDevice.value.status = newStatus
-      // 强制更新filteredDevices以触发重新渲染
-      filteredDevices.value = [...filteredDevices.value]
+      
+      // 强制更新store中的统计数据
+      await appStore.refreshDeviceStats()
+      
+      ElMessage.success('设备状态已更新')
+    } catch (error) {
+      ElMessage.error('设备状态更新失败')
+      console.error('设备状态更新失败:', error)
     }
   }
 }

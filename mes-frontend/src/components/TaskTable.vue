@@ -41,7 +41,7 @@
         background
         layout="total, sizes, prev, pager, next, jumper"
         :total="tasks.length"
-        :page-size="pageSize"
+        :page-size="pageSize.value"
         :current-page="currentPage"
         :page-sizes="[5, 10, 20, 50]"
         @current-change="onPageChange"
@@ -64,16 +64,24 @@ const props = defineProps({
 
 const emit = defineEmits(['edit', 'delete'])
 
-const pageSize = 10
+const pageSize = ref(10)
 const currentPage = ref(1)
 
 const pagedTasks = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  return props.tasks.slice(start, start + pageSize)
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  const result = props.tasks.slice(start, end)
+  
+  return result
 })
 
 function onPageChange(page) {
   currentPage.value = page
+}
+
+function handleSizeChange(size) {
+  pageSize.value = size
+  currentPage.value = 1
 }
 
 function getStatusClass(status) {

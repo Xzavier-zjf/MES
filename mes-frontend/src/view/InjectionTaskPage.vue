@@ -64,10 +64,10 @@
         </el-table-column> -->
         <el-table-column prop="pressure" label="注塑压力 (MPa)" />
         <el-table-column prop="injectionSpeed" label="注塑速度 (mm/s)" />
-        <!-- <el-table-column prop="holdTime" label="保压时间 (s)" /> -->
+        <el-table-column prop="holdTime" label="保压时间 (s)" />
         <el-table-column prop="coolingTime" label="冷却时间 (s)" />
-        <el-table-column prop="holdTime" label="模具温度 (℃)" />
-        <!-- <el-table-column prop="materialTemperature" label="料筒温度 (℃)" /> -->
+        <el-table-column prop="moldTemperature" label="模具温度 (℃)" />
+        <el-table-column prop="materialTemperature" label="料筒温度 (℃)" />
         <el-table-column label="操作" width="150">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="openDialog(row)">录入工艺</el-button>
@@ -118,14 +118,16 @@
 
 <script setup>
 import HeaderSection from '@/components/HeaderSection.vue'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { getInjectionParams, updateInjectionParam } from '@/api/injection'
 import { getPlans } from '@/api/plans'
 import { getTasks } from '@/api/tasks'
 import { getDevices } from '@/api/devices'
+import { useAppStore } from '@/stores'
 
 const route = useRoute()
+const appStore = useAppStore()
 
 // 任务列表
 const tasks = ref([])
@@ -148,11 +150,18 @@ const filteredTasks = computed(() => {
   return tasks.value.filter(task => {
     const taskIdStr = task.taskId != null ? String(task.taskId) : '';
     const planIdStr = task.planId != null ? String(task.planId) : '';
-    return (
-      taskIdStr.includes(filters.value.taskId) &&
-      planIdStr.includes(filters.value.planId) &&
-      (filters.value.processType === '' || task.processType === filters.value.processType)
-    )
+    
+    // 计划编号筛选 - 支持模糊匹配
+    const planMatch = !filters.value.planId || 
+      planIdStr.toLowerCase().includes(filters.value.planId.toLowerCase()) ||
+      (planMap.value[task.planId] && planMap.value[task.planId].toLowerCase().includes(filters.value.planId.toLowerCase()));
+    
+    // 任务编号筛选 - 支持模糊匹配
+    const taskMatch = !filters.value.taskId || 
+      taskIdStr.toLowerCase().includes(filters.value.taskId.toLowerCase()) ||
+      (taskMap.value[task.taskId] && taskMap.value[task.taskId].toLowerCase().includes(filters.value.taskId.toLowerCase()));
+    
+    return planMatch && taskMatch;
   })
 })
 
@@ -220,7 +229,8 @@ const submitParams = async () => {
 
 // 提交过滤
 const submitFilter = () => {
-  // 过滤逻辑已在 computed 中实现，无需额外操作
+  console.log('执行筛选，条件:', filters.value)
+  // 过滤逻辑已在 computed 中实现，这里可以添加额外的筛选逻辑
 }
 
 // 重置过滤
@@ -230,6 +240,7 @@ const resetFilter = () => {
     planId: '',
     processType: ''
   }
+  console.log('重置筛选条件')
 }
 
 // 获取注塑参数列表
@@ -306,11 +317,19 @@ const loadDeviceMap = async () => {
 }
 
 // 在onMounted中添加这些调用
-onMounted(() => {
-  fetchInjectionParams()
-  loadPlanMap()
-  loadTaskMap()
-  loadDeviceMap()
+onMounted(async () => {
+  await fetchInjectionParams()
+  await loadPlanMap()
+  await loadTaskMap()
+  await loadDeviceMap()
+  
+  // 启动自动刷新
+  appStore.startAutoRefresh(30000) // 30秒刷新一次
+})
+
+onUnmounted(() => {
+  // 停止自动刷新
+  appStore.stopAutoRefresh()
 })
 </script>
 

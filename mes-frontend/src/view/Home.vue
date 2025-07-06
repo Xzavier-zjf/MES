@@ -63,7 +63,7 @@
 
 <script setup>
 import HeaderSection from '@/components/HeaderSection.vue'
-import { ref, onMounted, nextTick, computed } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Document, Setting, Finished, Warning } from '@element-plus/icons-vue'
 import { use } from 'echarts/core'
@@ -128,90 +128,342 @@ const planTrendOption = ref({
   title: { text: '计划下发趋势', left: 'center' },
   tooltip: {
     trigger: 'axis',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: '#E4E7ED',
+    borderWidth: 1,
+    textStyle: {
+      color: '#333'
+    },
     formatter: function(params) {
-      return `日期: ${params[0].axisValue}<br/>计划数: ${params[0].data}`
+      return `
+        <div style="padding: 8px;">
+          <div style="font-weight: bold; margin-bottom: 8px; color: #333;">
+            ${params[0].axisValue}
+          </div>
+          <div style="margin-bottom: 4px;">
+            <span style="color: #666;">计划数：</span>
+            <span style="font-weight: bold; color: #409EFF;">${params[0].data} 个</span>
+          </div>
+          <div>
+            <span style="color: #666;">趋势：</span>
+            <span style="font-weight: bold; color: #67C23A;">${params[0].data > 3 ? '上升' : params[0].data < 3 ? '下降' : '平稳'}</span>
+          </div>
+        </div>
+      `
     }
   },
-  xAxis: { type: 'category', data: ['6月14日', '6月15日', '6月16日', '6月17日', '6月18日'] },
-  yAxis: { type: 'value' },
+  xAxis: { 
+    type: 'category', 
+    data: ['6月14日', '6月15日', '6月16日', '6月17日', '6月18日'],
+    axisLabel: {
+      color: '#666'
+    }
+  },
+  yAxis: { 
+    type: 'value',
+    axisLabel: {
+      color: '#666'
+    }
+  },
   series: [
-    { data: [3, 5, 2, 4, 6], type: 'line', smooth: true, areaStyle: {} }
+    { 
+      data: [3, 5, 2, 4, 6], 
+      type: 'line', 
+      smooth: true, 
+      areaStyle: {
+        color: {
+          type: 'linear',
+          x: 0,
+          y: 0,
+          x2: 0,
+          y2: 1,
+          colorStops: [
+            { offset: 0, color: 'rgba(64, 158, 255, 0.3)' },
+            { offset: 1, color: 'rgba(64, 158, 255, 0.1)' }
+          ]
+        }
+      },
+      itemStyle: {
+        color: '#409EFF',
+        borderWidth: 2,
+        borderColor: '#fff'
+      },
+      lineStyle: {
+        color: '#409EFF',
+        width: 3
+      }
+    }
   ]
 })
 
-const deviceStatusOption = ref({
-  title: { text: '设备状态分布', left: 'center' },
-  tooltip: { trigger: 'item' },
-  legend: { bottom: 10 },
-  series: [
-    {
-      name: '状态',
-      type: 'pie',
-      radius: '60%',
-      data: [
-        { value: 10, name: '运行中' },
-        { value: 2, name: '故障' },
-        { value: 3, name: '空闲' }
-      ]
-    }
-  ]
+const deviceStatusOption = computed(() => {
+  const totalDevices = appStore.totalDevices
+  const runningDevices = appStore.runningDevices
+  const pendingDevices = appStore.pendingDevices
+  const idlingDevices = appStore.idlingDevices
+  
+  return {
+    title: { text: '设备状态分布', left: 'center' },
+    tooltip: { 
+      trigger: 'item',
+      formatter: function(params) {
+        const percent = totalDevices > 0 ? ((params.value / totalDevices) * 100).toFixed(1) : 0
+        return `
+          <div style="padding: 8px;">
+            <div style="font-weight: bold; margin-bottom: 8px; color: #333;">
+              ${params.name}
+            </div>
+            <div style="margin-bottom: 4px;">
+              <span style="color: #666;">数量：</span>
+              <span style="font-weight: bold; color: #409EFF;">${params.value} 台</span>
+            </div>
+            <div style="margin-bottom: 4px;">
+              <span style="color: #666;">占比：</span>
+              <span style="font-weight: bold; color: #67C23A;">${percent}%</span>
+            </div>
+            <div>
+              <span style="color: #666;">总计：</span>
+              <span style="font-weight: bold; color: #E6A23C;">${totalDevices} 台</span>
+            </div>
+          </div>
+        `
+      },
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderColor: '#E4E7ED',
+      borderWidth: 1,
+      textStyle: {
+        color: '#333'
+      }
+    },
+    legend: { 
+      bottom: 10,
+      itemWidth: 12,
+      itemHeight: 12,
+      textStyle: {
+        fontSize: 12
+      }
+    },
+    series: [
+      {
+        name: '状态',
+        type: 'pie',
+        radius: '60%',
+        itemStyle: {
+          borderRadius: 4,
+          borderWidth: 2,
+          borderColor: '#fff'
+        },
+        emphasis: {
+          itemStyle: {
+            shadowBlur: 10,
+            shadowOffsetX: 0,
+            shadowColor: 'rgba(0, 0, 0, 0.5)'
+          }
+        },
+        data: [
+          { 
+            value: runningDevices, 
+            name: '运行中',
+            itemStyle: { color: '#67C23A' }
+          },
+          { 
+            value: pendingDevices, 
+            name: '故障',
+            itemStyle: { color: '#F56C6C' }
+          },
+          { 
+            value: idlingDevices, 
+            name: '空闲',
+            itemStyle: { color: '#E6A23C' }
+          }
+        ]
+      }
+    ]
+  }
 })
 
 // 新增设备使用情况图表（柱状图示例）
 const deviceUsageOption = ref({
   title: { text: '设备运行情况', left: 'center' },
-  tooltip: { trigger: 'axis' },
+  tooltip: { 
+    trigger: 'axis',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: '#E4E7ED',
+    borderWidth: 1,
+    textStyle: {
+      color: '#333'
+    },
+    formatter: function(params) {
+      return `
+        <div style="padding: 8px;">
+          <div style="font-weight: bold; margin-bottom: 8px; color: #333;">
+            ${params[0].name}
+          </div>
+          <div style="margin-bottom: 4px;">
+            <span style="color: #666;">运行时间：</span>
+            <span style="font-weight: bold; color: #409EFF;">${params[0].data} 小时</span>
+          </div>
+          <div>
+            <span style="color: #666;">状态：</span>
+            <span style="font-weight: bold; color: #67C23A;">${params[0].data > 100 ? '高效运行' : params[0].data > 80 ? '正常运行' : '待优化'}</span>
+          </div>
+        </div>
+      `
+    }
+  },
   xAxis: {
     type: 'category',
-    data: ['设备A', '设备B', '设备C', '设备D', '设备E']
+    data: ['设备A', '设备B', '设备C', '设备D', '设备E'],
+    axisLabel: {
+      color: '#666'
+    }
   },
   yAxis: {
     type: 'value',
-    name: '运行小时'
+    name: '运行小时',
+    axisLabel: {
+      color: '#666'
+    }
   },
   series: [
     {
       name: '运行小时',
       type: 'bar',
       data: [120, 98, 135, 80, 90],
-      itemStyle: { color: '#409EFF' }
+      itemStyle: { 
+        color: {
+          type: 'linear',
+          x: 0,
+          y: 0,
+          x2: 0,
+          y2: 1,
+          colorStops: [
+            { offset: 0, color: '#409EFF' },
+            { offset: 1, color: '#67C23A' }
+          ]
+        },
+        borderRadius: [4, 4, 0, 0]
+      },
+      emphasis: {
+        itemStyle: {
+          shadowBlur: 10,
+          shadowOffsetX: 0,
+          shadowColor: 'rgba(0, 0, 0, 0.5)'
+        }
+      }
     }
   ]
 })
 
 // 新增生产完成情况（环形图示例）
-const productionCompletionOption = ref({
-  title: { text: '生产完成情况', left: 'center' },
-  tooltip: { trigger: 'item' },
-  legend: { bottom: 10 },
-  series: [
-    {
-      name: '完成情况',
-      type: 'pie',
-      radius: ['40%', '70%'],
-      avoidLabelOverlap: false,
-      label: {
-        show: true,
-        position: 'center',
-        formatter: '{d}%',
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#409EFF'
+const productionCompletionOption = computed(() => {
+  const totalTasks = appStore.totalTasks
+  const completedTasks = appStore.completedTasks
+  const inProgressTasks = appStore.inProgressTasks
+  const pendingTasks = appStore.pendingTasks
+  
+  // 计算百分比
+  const completedPercent = totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(1) : 0
+  const inProgressPercent = totalTasks > 0 ? ((inProgressTasks / totalTasks) * 100).toFixed(1) : 0
+  const pendingPercent = totalTasks > 0 ? ((pendingTasks / totalTasks) * 100).toFixed(1) : 0
+  
+  return {
+    title: { text: '生产完成情况', left: 'center' },
+    tooltip: { 
+      trigger: 'item',
+      formatter: function(params) {
+        const percent = totalTasks > 0 ? ((params.value / totalTasks) * 100).toFixed(1) : 0
+        return `
+          <div style="padding: 8px;">
+            <div style="font-weight: bold; margin-bottom: 8px; color: #333;">
+              ${params.name}
+            </div>
+            <div style="margin-bottom: 4px;">
+              <span style="color: #666;">数量：</span>
+              <span style="font-weight: bold; color: #409EFF;">${params.value} 个</span>
+            </div>
+            <div style="margin-bottom: 4px;">
+              <span style="color: #666;">占比：</span>
+              <span style="font-weight: bold; color: #67C23A;">${percent}%</span>
+            </div>
+            <div>
+              <span style="color: #666;">总计：</span>
+              <span style="font-weight: bold; color: #E6A23C;">${totalTasks} 个</span>
+            </div>
+          </div>
+        `
       },
-      emphasis: {
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderColor: '#E4E7ED',
+      borderWidth: 1,
+      textStyle: {
+        color: '#333'
+      }
+    },
+    legend: { 
+      bottom: 10,
+      itemWidth: 12,
+      itemHeight: 12,
+      textStyle: {
+        fontSize: 12
+      }
+    },
+    series: [
+      {
+        name: '完成情况',
+        type: 'pie',
+        radius: ['40%', '70%'],
+        avoidLabelOverlap: false,
         label: {
           show: true,
-          fontSize: 24,
-          fontWeight: 'bold'
-        }
-      },
-      labelLine: { show: false },
-      data: [
-        { value: 75, name: '已完成' },
-        { value: 25, name: '未完成' }
-      ]
-    }
-  ]
+          position: 'center',
+          formatter: function() {
+            if (totalTasks === 0) return '暂无数据'
+            return `${completedPercent}%\n已完成`
+          },
+          fontSize: 16,
+          fontWeight: 'bold',
+          color: '#409EFF',
+          lineHeight: 20
+        },
+        emphasis: {
+          label: {
+            show: true,
+            fontSize: 18,
+            fontWeight: 'bold'
+          },
+          itemStyle: {
+            shadowBlur: 10,
+            shadowOffsetX: 0,
+            shadowColor: 'rgba(0, 0, 0, 0.5)'
+          }
+        },
+        labelLine: { show: false },
+        itemStyle: {
+          borderRadius: 4,
+          borderWidth: 2,
+          borderColor: '#fff'
+        },
+        data: [
+          { 
+            value: completedTasks, 
+            name: '已完成',
+            itemStyle: { color: '#67C23A' }
+          },
+          { 
+            value: inProgressTasks, 
+            name: '进行中',
+            itemStyle: { color: '#409EFF' }
+          },
+          { 
+            value: pendingTasks, 
+            name: '待下发',
+            itemStyle: { color: '#E6A23C' }
+          }
+        ]
+      }
+    ]
+  }
 })
 
 const navigate = (path) => {
@@ -223,7 +475,14 @@ onMounted(() => {
     showChart.value = true
     // 加载所有数据
     appStore.fetchAllData()
+    // 启动自动刷新
+    appStore.startAutoRefresh(30000) // 30秒刷新一次
   })
+})
+
+onUnmounted(() => {
+  // 停止自动刷新
+  appStore.stopAutoRefresh()
 })
 </script>
 

@@ -174,7 +174,7 @@ function resetForm() {
     processType: '',
     deviceCode: '',
     quantity: 1,
-   
+    status: '待下发'
   })
 }
 

@@ -14,8 +14,10 @@ export const useAppStore = defineStore('app', () => {
 
   // 任务数据
   const tasks = ref([])
+  const totalTasks = computed(() => tasks.value.length)
   const inProgressTasks = computed(() => tasks.value.filter(t => t.status === '进行中').length)
   const completedTasks = computed(() => tasks.value.filter(t => t.status === '已完成').length)
+  const pendingTasks = computed(() => tasks.value.filter(t => t.status === '待下发').length)
   
   // 设备数据
   const devices = ref([])
@@ -39,6 +41,43 @@ export const useAppStore = defineStore('app', () => {
     devices.value = newDevices
   }
   
+  // 实时更新方法
+  const refreshPlans = async () => {
+    try {
+      const data = await getPlans(0, 1000)
+      updatePlans(data.content || data)
+    } catch (error) {
+      console.error('刷新计划数据失败:', error)
+    }
+  }
+  
+  const refreshTasks = async () => {
+    try {
+      const data = await getTasks({ page: 0, size: 1000 })
+      updateTasks(data.content || data)
+    } catch (error) {
+      console.error('刷新任务数据失败:', error)
+    }
+  }
+  
+  const refreshDevices = async () => {
+    try {
+      const data = await getDevices({ page: 0, size: 1000 })
+      updateDevices(data.content || data)
+    } catch (error) {
+      console.error('刷新设备数据失败:', error)
+    }
+  }
+  
+  const refreshDeviceStats = async () => {
+    try {
+      const data = await getDevices({ page: 0, size: 1000 })
+      updateDevices(data.content || data)
+    } catch (error) {
+      console.error('刷新设备统计数据失败:', error)
+    }
+  }
+  
   const fetchAllData = async () => {
     try {
       // 并行获取所有数据
@@ -57,25 +96,63 @@ export const useAppStore = defineStore('app', () => {
     }
   }
   
+  // 定时刷新机制
+  let refreshInterval = null
+  
+  const startAutoRefresh = (intervalMs = 30000) => { // 默认30秒刷新一次
+    if (refreshInterval) {
+      clearInterval(refreshInterval)
+    }
+    refreshInterval = setInterval(() => {
+      fetchAllData()
+    }, intervalMs)
+  }
+  
+  const stopAutoRefresh = () => {
+    if (refreshInterval) {
+      clearInterval(refreshInterval)
+      refreshInterval = null
+    }
+  }
+  
   return {
+    // 数据
     plans,
     tasks,
     devices,
+    
+    // 计划统计
     totalPlans,
     inProgressPlans,
     pendingPlans,
     completedPlans,
+    
+    // 任务统计
+    totalTasks,
     inProgressTasks,
     completedTasks,
+    pendingTasks,
+    
+    // 设备统计
     totalDevices,
     pendingDevices,
     runningDevices,
     idlingDevices,
-    updatePlans,
-    updateTasks,
     devicesName,
     runtimeMinutes,
+    
+    // 更新方法
+    updatePlans,
+    updateTasks,
     updateDevices,
-    fetchAllData
+    refreshPlans,
+    refreshTasks,
+    refreshDevices,
+    refreshDeviceStats,
+    fetchAllData,
+    
+    // 自动刷新
+    startAutoRefresh,
+    stopAutoRefresh
   }
 })

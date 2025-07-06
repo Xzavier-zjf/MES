@@ -37,7 +37,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import HeaderSection from '@/components/HeaderSection.vue'
 import TaskFilter from '@/components/TaskFilter.vue'
@@ -47,6 +47,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getTasks, createTask, updateTask, deleteTask } from '@/api/tasks'
 import { getPlans } from '@/api/plans'
 import { getDevices, updateDeviceStatus, getDeviceById } from '@/api/devices'
+import { useAppStore } from '@/stores'
 
 const filters = ref({
   planCode: '',
@@ -58,6 +59,8 @@ const tasks = ref([])
 const planOptions = ref([])
 const planMap = ref({})
 const reversePlanMap = ref({})
+const appStore = useAppStore()
+
 const processTypes = ['注塑', '印刷', '组装', '质检', '包装']
 const deviceOptions = ref([])
 const deviceMap = ref({})
@@ -81,11 +84,12 @@ const resetFilters = async () => {
   filters.value = { planCode: '', processType: '', status: '' }
   await filterTasks()
 }
-// 计算统计数据
-const totalTasks = computed(() => tasks.value.length)
-const inProgressTasks = computed(() => tasks.value.filter(t => t.status === '进行中').length)
-const completedTasks = computed(() => tasks.value.filter(t => t.status === '已完成').length)
-const pendingTasks = computed(() => tasks.value.filter(t => t.status === '待下发').length)
+
+// 使用store的统计数据
+const totalTasks = computed(() => appStore.totalTasks)
+const inProgressTasks = computed(() => appStore.inProgressTasks)
+const completedTasks = computed(() => appStore.completedTasks)
+const pendingTasks = computed(() => appStore.pendingTasks)
 // 获取任务列表
 const filterTasks = async () => {
   try {
@@ -98,6 +102,13 @@ const filterTasks = async () => {
     }
 
     const data = await getTasks(params)
+    
+    if (!data || !data.content) {
+      console.warn('任务数据格式异常:', data)
+      tasks.value = []
+      return
+    }
+    
     tasks.value = data.content.map(task => {
       const planCode = reversePlanMap.value[task.planId] || ''
       const deviceCode = Object.keys(deviceMap.value).find(code => deviceMap.value[code] === task.deviceId) || ''
@@ -114,6 +125,7 @@ const filterTasks = async () => {
   } catch (err) {
     console.error('filterTasks 错误:', err)
     ElMessage.error(`获取任务失败: ${err.message}`)
+    tasks.value = []
   }
 }
 
@@ -199,10 +211,8 @@ const loadDevices = async () => {
 
     data.content.forEach(device => {
       deviceMap.value[device.deviceCode] = device.id
-      // 只添加状态为"空闲"的设备
-      if (device.status === '空闲') {
-        deviceOptions.value.push(device.deviceCode)
-      }
+      // 编辑时显示所有设备，新建时只显示空闲设备
+      deviceOptions.value.push(device.deviceCode)
     })
   } catch (err) {
     console.error(err)
@@ -221,25 +231,28 @@ const submitTask = async (data) => {
       return ElMessage.error('请选择有效的计划或设备编号')
     }
 
-    // 1️⃣ 获取设备状态
-    const device = await getDeviceById(deviceId)
+    // 只在新建任务时检查设备状态
+    if (!isEditing.value) {
+      // 1️⃣ 获取设备状态
+      const device = await getDeviceById(deviceId)
 
-    // 2️⃣ 校验设备是否空闲
-    if (device.status !== '空闲') {
-      return ElMessage.error(`设备当前状态为 ${device.status}，无法分配任务`)
-    }
+      // 2️⃣ 校验设备是否空闲
+      if (device.status !== '空闲') {
+        return ElMessage.error(`设备当前状态为 ${device.status}，无法分配任务`)
+      }
 
-    // 3️⃣ 校验设备类型与工序类型是否匹配
-    const processToDeviceType = {
-      '注塑': 'INJ',
-      '印刷': 'PRT',
-      '组装': 'ASM',
-      '质检': 'QC',
-      '包装': 'PKG'
-    }
-    const expectedPrefix = processToDeviceType[data.processType]
-    if (expectedPrefix && !device.deviceCode.startsWith(expectedPrefix)) {
-      return ElMessage.error(`设备类型不匹配，${data.processType} 工序需要使用 ${expectedPrefix} 开头的设备`)
+      // 3️⃣ 校验设备类型与工序类型是否匹配
+      const processToDeviceType = {
+        '注塑': 'INJ',
+        '印刷': 'PRT',
+        '组装': 'ASM',
+        '质检': 'QC',
+        '包装': 'PKG'
+      }
+      const expectedPrefix = processToDeviceType[data.processType]
+      if (expectedPrefix && !device.deviceCode.startsWith(expectedPrefix)) {
+        return ElMessage.error(`设备类型不匹配，${data.processType} 工序需要使用 ${expectedPrefix} 开头的设备`)
+      }
     }
 
     if (isEditing.value) {
@@ -255,11 +268,17 @@ const submitTask = async (data) => {
         quantity: data.quantity,
         status: data.status
       }
-
-      await updateTask(data.id, taskData)
-      ElMessage.success('任务更新成功')
-      dialogVisible.value = false
-      await filterTasks()
+      // 可选：打印payload便于调试
+      console.log('编辑任务payload:', taskData)
+      try {
+        await updateTask(data.id, taskData)
+        ElMessage.success('任务更新成功')
+        dialogVisible.value = false
+        await filterTasks()
+      } catch (err) {
+        ElMessage.error('任务更新失败: ' + (err.message || '未知错误'))
+        console.error('任务更新失败详细信息:', err)
+      }
     } else {
       // ✅ 新建任务
       const taskData = {
@@ -270,27 +289,36 @@ const submitTask = async (data) => {
         quantity: data.quantity,
         status: data.status
       }
-
-      const task = await createTask(taskData)
-
-      tasks.value.push({
-        ...task,
-        taskCode: data.taskCode,
-        planCode: data.planCode,
-        deviceCode: data.deviceCode,
-        status: data.status || '待下发'
-      })
-
-      // ✅ 4️⃣ 创建成功后更新设备状态为“运行中”
+      // 可选：打印payload便于调试
+      console.log('新建任务payload:', taskData)
       try {
-        await updateDeviceStatus(deviceId, '运行中')
-        ElMessage.success('任务创建成功，设备状态已更新为运行中')
-      } catch (error) {
-        ElMessage.warning('任务创建成功，但设备状态更新失败')
+        const task = await createTask(taskData)
+        tasks.value.push({
+          ...task,
+          taskCode: data.taskCode,
+          planCode: data.planCode,
+          deviceCode: data.deviceCode,
+          status: data.status || '待下发'
+        })
+        // ✅ 4️⃣ 创建成功后更新设备状态为“运行中”
+        try {
+          await updateDeviceStatus(deviceId, '运行中')
+          ElMessage.success('任务创建成功，设备状态已更新为运行中')
+          // 更新本地设备列表中的设备状态
+          const deviceIndex = deviceOptions.value.findIndex(d => d.value === deviceId)
+          if (deviceIndex !== -1) {
+            deviceOptions.value[deviceIndex].status = '运行中'
+          }
+        } catch (error) {
+          ElMessage.warning('任务创建成功，但设备状态更新失败，请手动检查设备状态')
+          console.error('设备状态更新失败:', error)
+        }
+        dialogVisible.value = false
+        await filterTasks()
+      } catch (err) {
+        ElMessage.error('任务提交失败: ' + (err.message || '未知错误'))
+        console.error('任务提交失败详细信息:', err)
       }
-
-      dialogVisible.value = false
-      await filterTasks()
     }
 
   } catch (err) {
@@ -302,13 +330,21 @@ const submitTask = async (data) => {
 
 onMounted(async () => {
   try {
-    await loadPlans(),
-    await loadDevices(),
+    await loadPlans()
+    await loadDevices()
     await filterTasks()
+    
+    // 启动自动刷新
+    appStore.startAutoRefresh(30000) // 30秒刷新一次
   } catch (err) {
     console.error('初始化失败:', err)
     ElMessage.error(`初始化失败: ${err.message}`)
   }
+})
+
+onUnmounted(() => {
+  // 停止自动刷新
+  appStore.stopAutoRefresh()
 })
 </script>
 <style scoped>
