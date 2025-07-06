@@ -234,6 +234,7 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
 
         return BigDecimal.valueOf(actualRuntime)
                 .divide(BigDecimal.valueOf(totalMinutes), 4, RoundingMode.HALF_UP)
+                 .multiply(BigDecimal.valueOf(100)) // ← 必须乘以 100 转换为百分比
                 .setScale(2, RoundingMode.HALF_UP);
     }
 
