@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据一致性检查工具 - 简化版</title>
+    <style>
+        body { 
+            padding: 20px; 
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background-color: #f5f7fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .debug-section { 
+            margin: 20px 0; 
+            padding: 15px; 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            background: #fafafa;
+        }
+        .result { 
+            background: #f5f5f5; 
+            padding: 10px; 
+            border-radius: 4px; 
+            white-space: pre-wrap; 
+            font-family: 'Consolas', monospace; 
+            margin-top: 10px; 
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error { color: #e74c3c; background: #fdf2f2; }
+        .success { color: #27ae60; background: #f0f9f4; }
+        .warning { color: #f39c12; background: #fef9e7; }
+        button { 
+            padding: 10px 20px; 
+            margin: 5px; 
+            cursor: pointer; 
+            border: none;
+            border-radius: 4px;
+            background: #3498db;
+            color: white;
+            font-size: 14px;
+        }
+        button:hover { background: #2980b9; }
+        .btn-danger { background: #e74c3c; }
+        .btn-danger:hover { background: #c0392b; }
+        .btn-success { background: #27ae60; }
+        .btn-success:hover { background: #229954; }
+        .problem-demo { 
+            background: #fef2f2; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin: 10px 0; 
+            border-left: 4px solid #ef4444; 
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 10px 0; 
+        }
+        th, td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: left; 
+        }
+        th { 
+            background-color: #f2f2f2; 
+            font-weight: bold;
+        }
+        .inconsistent { background-color: #fef2f2; }
+        .consistent { background-color: #f0fdf4; }
+        input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 200px;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .stat-item {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            background: #ecf0f1;
+            border-radius: 8px;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 数据一致性检查工具</h1>
+        
+        <div class="problem-demo">
+            <h3>🚨 问题说明</h3>
+            <p><strong>现象</strong>：任务管理页面显示计划已完成，但注塑工艺参数页面显示任务数量不一致（如：100/8001件）</p>
+            <p><strong>原因</strong>：工艺参数数量与任务数量不同步，可能是数据更新时没有同步所有相关表</p>
+            <p><strong>影响</strong>：数据不一致可能导致生产计划和实际执行出现偏差</p>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-value" id="totalTasks">-</div>
+                <div class="stat-label">总任务数</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="totalParams">-</div>
+                <div class="stat-label">总参数数</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="consistentCount">-</div>
+                <div class="stat-label">一致项</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="inconsistentCount">-</div>
+                <div class="stat-label">不一致项</div>
+            </div>
+        </div>
+        
+        <div class="debug-section">
+            <h3>1. 快速检查特定计划</h3>
+            <div>
+                <label>计划编号: </label>
+                <input type="text" id="planCode" value="PLAN-20250625-001" placeholder="输入计划编号">
+                <button onclick="checkSpecificPlan()" class="btn-success">检查计划</button>
+            </div>
+            <div id="specificPlanResult" class="result"></div>
+        </div>
+
+        <div class="debug-section">
+            <h3>2. 全量数据一致性检查</h3>
+            <button onclick="checkAllDataConsistency()" class="btn-danger">检查所有数据</button>
+            <button onclick="exportResults()" style="background: #9b59b6;">导出结果</button>
+            <div id="allDataResult" class="result"></div>
+        </div>
+
+        <div class="debug-section">
+            <h3>3. 不一致数据详情</h3>
+            <div id="inconsistencyDetails" style="display: none;">
+                <table id="inconsistencyTable">
+                    <thead>
+                        <tr>
+                            <th>序号</th>
+                            <th>计划编号</th>
+                            <th>任务编号</th>
+                            <th>任务状态</th>
+                            <th>任务数量</th>
+                            <th>参数数量</th>
+                            <th>差异</th>
+                            <th>问题类型</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inconsistencyTableBody">
+                    </tbody>
+                </table>
+            </div>
+            <div id="inconsistencyResult" class="result"></div>
+        </div>
+
+        <div class="debug-section">
+            <h3>4. 修复建议</h3>
+            <button onclick="generateFixSuggestions()">生成修复建议</button>
+            <div id="fixSuggestionsResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080';
+        let allTasks = [];
+        let allInjectionParams = [];
+        let allPlans = [];
+        let inconsistencyData = [];
+        
+        // 更新统计数据
+        function updateStats(stats) {
+            document.getElementById('totalTasks').textContent = stats.totalTasks || 0;
+            document.getElementById('totalParams').textContent = stats.totalParams || 0;
+            document.getElementById('consistentCount').textContent = stats.consistentCount || 0;
+            document.getElementById('inconsistentCount').textContent = stats.inconsistentCount || 0;
+        }
+        
+        // 检查特定计划
+        async function checkSpecificPlan() {
+            const planCode = document.getElementById('planCode').value.trim();
+            const resultDiv = document.getElementById('specificPlanResult');
+            
+            if (!planCode) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '❌ 请输入计划编号';
+                return;
+            }
+            
+            try {
+                resultDiv.innerHTML = '🔍 检查特定计划数据中...\n\n';
+                
+                // 获取计划数据
+                const plansResponse = await fetch(`${API_BASE}/api/v1/production/plans?page=0&size=1000`);
+                if (!plansResponse.ok) {
+                    throw new Error(`获取计划数据失败: ${plansResponse.status}`);
+                }
+                const plansData = await plansResponse.json();
+                const targetPlan = plansData.content?.find(p => p.planCode === planCode);
+                
+                if (!targetPlan) {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `❌ 未找到计划 ${planCode}`;
+                    return;
+                }
+                
+                // 获取相关任务
+                const tasksResponse = await fetch(`${API_BASE}/api/v1/production/tasks?page=0&size=1000`);
+                if (!tasksResponse.ok) {
+                    throw new Error(`获取任务数据失败: ${tasksResponse.status}`);
+                }
+                const tasksData = await tasksResponse.json();
+                const relatedTasks = tasksData.content?.filter(t => t.planId === targetPlan.id) || [];
+                
+                // 获取相关工艺参数
+                const paramsResponse = await fetch(`${API_BASE}/api/v1/process/injection-params/all?page=0&size=1000`);
+                if (!paramsResponse.ok) {
+                    throw new Error(`获取工艺参数失败: ${paramsResponse.status}`);
+                }
+                const paramsData = await paramsResponse.json();
+                const relatedParams = paramsData.content?.filter(p => 
+                    relatedTasks.some(t => t.id === p.taskId)
+                ) || [];
+                
+                // 分析数据
+                let analysis = {
+                    planInfo: targetPlan,
+                    totalTasks: relatedTasks.length,
+                    totalParams: relatedParams.length,
+                    taskQuantitySum: relatedTasks.reduce((sum, t) => sum + (t.quantity || 0), 0),
+                    paramQuantitySum: relatedParams.reduce((sum, p) => sum + (p.quantity || 0), 0),
+                    completedTasks: relatedTasks.filter(t => t.status === '已完成').length,
+                    inconsistencies: []
+                };
+                
+                // 检查每个任务的一致性
+                relatedTasks.forEach(task => {
+                    const relatedParam = relatedParams.find(p => p.taskId === task.id);
+                    if (relatedParam) {
+                        if (task.quantity !== relatedParam.quantity) {
+                            analysis.inconsistencies.push({
+                                taskId: task.id,
+                                taskCode: task.taskCode,
+                                taskQuantity: task.quantity,
+                                paramQuantity: relatedParam.quantity,
+                                difference: Math.abs(task.quantity - relatedParam.quantity),
+                                status: task.status
+                            });
+                        }
+                    }
+                });
+                
+                resultDiv.className = analysis.inconsistencies.length > 0 ? 'result warning' : 'result success';
+                resultDiv.innerHTML = `📊 计划 ${planCode} 数据检查结果:\n\n` +
+                                     `📋 计划信息:\n` +
+                                     `  - 计划总数量: ${targetPlan.totalQuantity}\n` +
+                                     `  - 计划状态: ${targetPlan.status}\n\n` +
+                                     `📝 任务信息:\n` +
+                                     `  - 关联任务数: ${analysis.totalTasks}\n` +
+                                     `  - 任务总数量: ${analysis.taskQuantitySum}\n` +
+                                     `  - 已完成任务: ${analysis.completedTasks}\n\n` +
+                                     `⚙️ 工艺参数:\n` +
+                                     `  - 工艺参数数: ${analysis.totalParams}\n` +
+                                     `  - 参数总数量: ${analysis.paramQuantitySum}\n\n` +
+                                     `🔍 一致性检查:\n` +
+                                     `  - 状态: ${analysis.inconsistencies.length === 0 ? '✅ 数据一致' : `❌ 发现${analysis.inconsistencies.length}个不一致`}\n`;
+                
+                if (analysis.inconsistencies.length > 0) {
+                    resultDiv.innerHTML += '\n📋 不一致详情:\n';
+                    analysis.inconsistencies.forEach((item, index) => {
+                        const severity = item.difference > item.taskQuantity * 0.5 ? '🔴 严重' : '🟡 一般';
+                        resultDiv.innerHTML += `${index + 1}. ${severity} - 任务${item.taskCode || item.taskId}:\n` +
+                                              `   任务数量: ${item.taskQuantity} | 参数数量: ${item.paramQuantity} | 差异: ${item.difference}\n` +
+                                              `   任务状态: ${item.status}\n\n`;
+                    });
+                }
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '❌ 检查过程中发生错误:\n' + error.message;
+                console.error('检查特定计划失败:', error);
+            }
+        }
+        
+        // 检查所有数据一致性
+        async function checkAllDataConsistency() {
+            const resultDiv = document.getElementById('allDataResult');
+            
+            try {
+                resultDiv.innerHTML = '🔍 检查全量数据一致性中...\n\n';
+                
+                // 获取所有数据
+                const [tasksResponse, paramsResponse, plansResponse] = await Promise.all([
+                    fetch(`${API_BASE}/api/v1/production/tasks?page=0&size=1000`),
+                    fetch(`${API_BASE}/api/v1/process/injection-params/all?page=0&size=1000`),
+                    fetch(`${API_BASE}/api/v1/production/plans?page=0&size=1000`)
+                ]);
+                
+                // 检查响应状态
+                if (!tasksResponse.ok) throw new Error(`获取任务数据失败: ${tasksResponse.status}`);
+                if (!paramsResponse.ok) throw new Error(`获取参数数据失败: ${paramsResponse.status}`);
+                if (!plansResponse.ok) throw new Error(`获取计划数据失败: ${plansResponse.status}`);
+                
+                allTasks = (await tasksResponse.json()).content || [];
+                allInjectionParams = (await paramsResponse.json()).content || [];
+                allPlans = (await plansResponse.json()).content || [];
+                
+                // 分析数据一致性
+                inconsistencyData = [];
+                let totalChecked = 0;
+                
+                allInjectionParams.forEach(param => {
+                    const relatedTask = allTasks.find(t => t.id === param.taskId);
+                    totalChecked++;
+                    
+                    if (!relatedTask) {
+                        inconsistencyData.push({
+                            type: '任务不存在',
+                            paramId: param.id,
+                            taskId: param.taskId,
+                            paramQuantity: param.quantity,
+                            taskQuantity: 'N/A',
+                            planCode: 'N/A',
+                            taskCode: 'N/A',
+                            taskStatus: 'N/A',
+                            difference: 'N/A'
+                        });
+                    } else if (relatedTask.quantity !== param.quantity) {
+                        const plan = allPlans.find(p => p.id === relatedTask.planId);
+                        const difference = Math.abs(relatedTask.quantity - param.quantity);
+                        inconsistencyData.push({
+                            type: difference > relatedTask.quantity * 0.5 ? '严重不一致' : '数量不一致',
+                            paramId: param.id,
+                            taskId: param.taskId,
+                            taskCode: relatedTask.taskCode,
+                            paramQuantity: param.quantity,
+                            taskQuantity: relatedTask.quantity,
+                            taskStatus: relatedTask.status,
+                            planCode: plan?.planCode || 'N/A',
+                            difference: difference
+                        });
+                    }
+                });
+                
+                // 更新统计
+                const stats = {
+                    totalTasks: allTasks.length,
+                    totalParams: allInjectionParams.length,
+                    consistentCount: totalChecked - inconsistencyData.length,
+                    inconsistentCount: inconsistencyData.length
+                };
+                updateStats(stats);
+                
+                // 显示结果
+                resultDiv.className = inconsistencyData.length > 0 ? 'result warning' : 'result success';
+                resultDiv.innerHTML = `📊 全量数据一致性检查结果:\n\n` +
+                                     `📈 统计信息:\n` +
+                                     `  - 总检查项: ${totalChecked}\n` +
+                                     `  - 一致项: ${totalChecked - inconsistencyData.length}\n` +
+                                     `  - 不一致项: ${inconsistencyData.length}\n` +
+                                     `  - 一致性比例: ${Math.round(((totalChecked - inconsistencyData.length) / totalChecked) * 100)}%\n\n`;
+                
+                if (inconsistencyData.length > 0) {
+                    // 按问题类型分组
+                    const byType = inconsistencyData.reduce((acc, item) => {
+                        acc[item.type] = (acc[item.type] || 0) + 1;
+                        return acc;
+                    }, {});
+                    
+                    resultDiv.innerHTML += '📋 问题分布:\n';
+                    Object.entries(byType).forEach(([type, count]) => {
+                        const icon = type.includes('严重') ? '🔴' : type.includes('不存在') ? '⚫' : '🟡';
+                        resultDiv.innerHTML += `  ${icon} ${type}: ${count}个\n`;
+                    });
+                    
+                    // 显示详细表格
+                    showInconsistencyTable(inconsistencyData);
+                } else {
+                    resultDiv.innerHTML += '✅ 所有数据都是一致的！';
+                }
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '❌ 检查过程中发生错误:\n' + error.message;
+                console.error('全量数据检查失败:', error);
+            }
+        }
+        
+        // 显示不一致详情表格
+        function showInconsistencyTable(inconsistencies) {
+            const detailsDiv = document.getElementById('inconsistencyDetails');
+            const tbody = document.getElementById('inconsistencyTableBody');
+            
+            tbody.innerHTML = '';
+            
+            inconsistencies.forEach((item, index) => {
+                const row = tbody.insertRow();
+                row.className = item.type.includes('严重') ? 'inconsistent' : '';
+                
+                const typeIcon = item.type.includes('严重') ? '🔴' : 
+                               item.type.includes('不存在') ? '⚫' : '🟡';
+                
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${item.planCode}</td>
+                    <td>${item.taskCode || item.taskId}</td>
+                    <td>${item.taskStatus}</td>
+                    <td>${item.taskQuantity}</td>
+                    <td>${item.paramQuantity}</td>
+                    <td>${item.difference}</td>
+                    <td>${typeIcon} ${item.type}</td>
+                `;
+            });
+            
+            detailsDiv.style.display = 'block';
+        }
+        
+        // 生成修复建议
+        function generateFixSuggestions() {
+            const resultDiv = document.getElementById('fixSuggestionsResult');
+            
+            if (inconsistencyData.length === 0) {
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = '✅ 数据一致，无需修复';
+                return;
+            }
+            
+            // 分析不一致数据
+            const seriousIssues = inconsistencyData.filter(i => i.type.includes('严重'));
+            const completedTasks = inconsistencyData.filter(i => i.taskStatus === '已完成');
+            const inProgressTasks = inconsistencyData.filter(i => i.taskStatus === '进行中');
+            const missingTasks = inconsistencyData.filter(i => i.type.includes('不存在'));
+            
+            let suggestions = [];
+            suggestions.push('🔧 数据修复建议:\n');
+            
+            if (missingTasks.length > 0) {
+                suggestions.push(`⚫ 任务不存在问题 (${missingTasks.length}个):`);
+                suggestions.push('  - 这些工艺参数关联的任务已被删除');
+                suggestions.push('  - 建议删除这些孤立的工艺参数');
+                suggestions.push('  - 或者重新创建对应的任务\n');
+            }
+            
+            if (completedTasks.length > 0) {
+                suggestions.push(`✅ 已完成任务 (${completedTasks.length}个):`);
+                suggestions.push('  - 建议将工艺参数数量同步为任务数量');
+                suggestions.push('  - 因为任务已完成，任务数量应该是准确的\n');
+            }
+            
+            if (inProgressTasks.length > 0) {
+                suggestions.push(`🔄 进行中任务 (${inProgressTasks.length}个):`);
+                suggestions.push('  - 需要人工判断哪个数量是正确的');
+                suggestions.push('  - 建议检查实际生产情况后决定\n');
+            }
+            
+            if (seriousIssues.length > 0) {
+                suggestions.push(`🔴 严重不一致 (${seriousIssues.length}个):`);
+                suggestions.push('  - 数量差异超过50%，需要优先处理');
+                suggestions.push('  - 建议立即核实正确的数量\n');
+            }
+            
+            suggestions.push('📋 具体修复步骤:');
+            suggestions.push('1. 备份当前数据');
+            suggestions.push('2. 确认正确的数量标准');
+            suggestions.push('3. 执行批量数据同步');
+            suggestions.push('4. 验证修复结果');
+            suggestions.push('5. 建立数据一致性监控\n');
+            
+            suggestions.push('⚠️ 注意事项:');
+            suggestions.push('- 修复前请在测试环境验证');
+            suggestions.push('- 通知相关人员数据变更');
+            suggestions.push('- 建立定期数据检查机制');
+            
+            resultDiv.className = 'result warning';
+            resultDiv.innerHTML = suggestions.join('\n');
+        }
+        
+        // 导出结果
+        function exportResults() {
+            if (inconsistencyData.length === 0) {
+                alert('没有不一致数据可导出');
+                return;
+            }
+            
+            let csvContent = "序号,计划编号,任务编号,任务状态,任务数量,参数数量,差异,问题类型\n";
+            
+            inconsistencyData.forEach((item, index) => {
+                csvContent += `${index + 1},"${item.planCode}","${item.taskCode || item.taskId}","${item.taskStatus}",${item.taskQuantity},${item.paramQuantity},${item.difference},"${item.type}"\n`;
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `数据一致性检查结果_${new Date().toISOString().slice(0,10)}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // 页面加载时的初始化
+        window.onload = function() {
+            console.log('数据一致性检查工具已加载');
+        };
+    </script>
+</body>
+</html>

@@ -1,22 +1,62 @@
-// src/api/auth.js
-const BASE_URL = 'http://localhost:8080/auth' // 修改为你后端地址
+import request from './request'
 
+// 用户登录
 export const login = async (username, password) => {
-  const res = await fetch(`${BASE_URL}/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
-  })
-  if (!res.ok) throw new Error('登录失败')
-  return await res.text() // 返回 token（不是 JSON）
+  try {
+    const response = await request.post('/auth/login', {
+      username,
+      password
+    })
+    
+    // 根据后端返回格式调整
+    if (typeof response === 'string') {
+      return { token: response }
+    }
+    
+    return response
+  } catch (error) {
+    throw new Error(error.response?.data?.message || '登录失败')
+  }
 }
 
-export const register = async (user) => {
-  const res = await fetch(`${BASE_URL}/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(user),
-  })
-  if (!res.ok) throw new Error('注册失败')
-  return await res.text()
+// 用户注册
+export const register = async (userData) => {
+  try {
+    const response = await request.post('/auth/register', userData)
+    return response
+  } catch (error) {
+    throw new Error(error.response?.data?.message || '注册失败')
+  }
+}
+
+// 获取用户信息
+export const getUserInfo = async () => {
+  try {
+    const response = await request.get('/auth/userinfo')
+    return response
+  } catch (error) {
+    throw new Error(error.response?.data?.message || '获取用户信息失败')
+  }
+}
+
+// 刷新token
+export const refreshToken = async () => {
+  try {
+    const response = await request.post('/auth/refresh')
+    return response
+  } catch (error) {
+    throw new Error(error.response?.data?.message || '刷新token失败')
+  }
+}
+
+// 用户登出
+export const logout = async () => {
+  try {
+    const response = await request.post('/auth/logout')
+    return response
+  } catch (error) {
+    // 登出失败也不抛出错误，因为前端可以直接清除本地状态
+    console.warn('服务端登出失败:', error)
+    return null
+  }
 }

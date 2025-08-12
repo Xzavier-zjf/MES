@@ -1,0 +1,206 @@
+/* 权限控制相关样式 */
+
+/* 权限被隐藏的元素标记 */
+[data-permission-hidden="true"],
+[data-role-hidden="true"],
+[data-auth-hidden="true"] {
+  display: none !important;
+}
+
+/* 权限被禁用的元素样式 */
+.permission-disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+/* 按钮被权限禁用时的样式 */
+.el-button.permission-disabled {
+  background-color: #f5f7fa !important;
+  border-color: #e4e7ed !important;
+  color: #c0c4cc !important;
+}
+
+.el-button.permission-disabled:hover,
+.el-button.permission-disabled:focus {
+  background-color: #f5f7fa !important;
+  border-color: #e4e7ed !important;
+  color: #c0c4cc !important;
+}
+
+/* 输入框被权限禁用时的样式 */
+.el-input.permission-disabled .el-input__inner {
+  background-color: #f5f7fa !important;
+  border-color: #e4e7ed !important;
+  color: #c0c4cc !important;
+  cursor: not-allowed !important;
+}
+
+/* 选择器被权限禁用时的样式 */
+.el-select.permission-disabled .el-input__inner {
+  background-color: #f5f7fa !important;
+  border-color: #e4e7ed !important;
+  color: #c0c4cc !important;
+  cursor: not-allowed !important;
+}
+
+/* 权限提示工具提示样式 */
+.permission-tooltip {
+  background-color: #f56c6c !important;
+  color: white !important;
+  border: 1px solid #f56c6c !important;
+}
+
+.permission-tooltip .el-tooltip__arrow {
+  border-top-color: #f56c6c !important;
+}
+
+/* 权限警告图标 */
+.permission-warning-icon {
+  color: #e6a23c;
+  margin-left: 4px;
+  font-size: 14px;
+}
+
+/* 权限状态指示器 */
+.permission-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.permission-indicator.has-permission {
+  color: #67c23a;
+}
+
+.permission-indicator.no-permission {
+  color: #f56c6c;
+}
+
+/* 权限级别标签 */
+.permission-level-tag {
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.permission-level-tag.admin {
+  background-color: #f56c6c;
+  color: white;
+}
+
+.permission-level-tag.manager {
+  background-color: #e6a23c;
+  color: white;
+}
+
+.permission-level-tag.operator {
+  background-color: #409eff;
+  color: white;
+}
+
+.permission-level-tag.viewer {
+  background-color: #909399;
+  color: white;
+}
+
+/* 权限控制面板样式 */
+.permission-control-panel {
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  padding: 16px;
+  background-color: #fafafa;
+}
+
+.permission-control-panel .title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 12px;
+}
+
+.permission-control-panel .permission-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.permission-control-panel .permission-item:last-child {
+  border-bottom: none;
+}
+
+.permission-control-panel .permission-name {
+  font-size: 13px;
+  color: #606266;
+}
+
+.permission-control-panel .permission-status {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.permission-control-panel .permission-status.granted {
+  background-color: #f0f9ff;
+  color: #67c23a;
+}
+
+.permission-control-panel .permission-status.denied {
+  background-color: #fef0f0;
+  color: #f56c6c;
+}
+
+/* 响应式权限控制 */
+@media (max-width: 768px) {
+  .permission-control-panel {
+    padding: 12px;
+  }
+  
+  .permission-control-panel .permission-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+
+/* 权限加载状态 */
+.permission-loading {
+  opacity: 0.6;
+  pointer-events: none;
+  position: relative;
+}
+
+.permission-loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 权限错误状态 */
+.permission-error {
+  border: 1px solid #f56c6c !important;
+  background-color: #fef0f0 !important;
+}
+
+.permission-error-message {
+  color: #f56c6c;
+  font-size: 12px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.permission-error-message .el-icon {
+  font-size: 14px;
+}

@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import com.shoujike.process.service.InjectionParamService;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -62,25 +63,44 @@ public class InjectionParamServiceImpl implements InjectionParamService {
 
     @Override
     @Transactional
-    public InjectionParamDTO updateInjectionParam(Integer id, InjectionParamCreateDTO updateDTO) throws EntityNotFoundException {
+    public InjectionParamDTO updateInjectionParam(Integer id, InjectionParamCreateDTO updateDTO)
+            throws EntityNotFoundException, BusinessException {
         InjectionParam param = injectionParamMapper.selectById(id);
         if (param == null) {
             throw new EntityNotFoundException("注塑工艺参数不存在");
         }
 
+        // 验证任务是否存在（如果提供了taskId）
+        if (updateDTO.getTaskId() != null && !updateDTO.getTaskId().equals(param.getTaskId())) {
+            verifyTaskExists(updateDTO.getTaskId());
+        }
+
         // 更新参数
-        param.setPressure(updateDTO.getPressure());
-        param.setInjectionSpeed(updateDTO.getInjectionSpeed());
-        param.setHoldTime(updateDTO.getHoldTime());
-        param.setCoolingTime(updateDTO.getCoolingTime());
-        param.setMoldTemperature(updateDTO.getMoldTemperature());
-        param.setMaterialTemperature(updateDTO.getMaterialTemperature());
+        if (updateDTO.getPressure() != null) {
+            param.setPressure(updateDTO.getPressure());
+        }
+        if (updateDTO.getInjectionSpeed() != null) {
+            param.setInjectionSpeed(updateDTO.getInjectionSpeed());
+        }
+        if (updateDTO.getHoldTime() != null) {
+            param.setHoldTime(updateDTO.getHoldTime());
+        }
+        if (updateDTO.getCoolingTime() != null) {
+            param.setCoolingTime(updateDTO.getCoolingTime());
+        }
+        if (updateDTO.getMoldTemperature() != null) {
+            param.setMoldTemperature(updateDTO.getMoldTemperature());
+        }
+        if (updateDTO.getMaterialTemperature() != null) {
+            param.setMaterialTemperature(updateDTO.getMaterialTemperature());
+        }
+        if (updateDTO.getQuantity() != null) {
+            param.setQuantity(updateDTO.getQuantity());
+        }
 
         injectionParamMapper.updateById(param);
         return convertToDTO(param);
     }
-
-
 
     @Override
     public InjectionParamDTO getInjectionParamById(Integer id) throws EntityNotFoundException {
@@ -123,20 +143,19 @@ public class InjectionParamServiceImpl implements InjectionParamService {
             throw new BusinessException("验证任务时出错: " + msg);
         }
     }
+
     @Override
     public Page<InjectionParamDTO> getAllInjectionParams(Pageable pageable) {
         // 处理分页转换（MP页码从1开始）
-        com.baomidou.mybatisplus.extension.plugins.pagination.Page<InjectionParam> mpPage =
-                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(
-                        pageable.getPageNumber() + 1,
-                        pageable.getPageSize()
-                );
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<InjectionParam> mpPage = new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(
+                pageable.getPageNumber() + 1,
+                pageable.getPageSize());
 
         QueryWrapper<InjectionParam> wrapper = new QueryWrapper<>();
         wrapper.orderByDesc("id");
 
-        com.baomidou.mybatisplus.extension.plugins.pagination.Page<InjectionParam> mpResult =
-                injectionParamMapper.selectPage(mpPage, wrapper);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<InjectionParam> mpResult = injectionParamMapper
+                .selectPage(mpPage, wrapper);
 
         List<InjectionParamDTO> dtoList = mpResult.getRecords()
                 .stream()
@@ -145,8 +164,50 @@ public class InjectionParamServiceImpl implements InjectionParamService {
 
         return new PageImpl<>(
                 dtoList,
-                PageRequest.of((int)mpResult.getCurrent() - 1, (int)mpResult.getSize()),
-                mpResult.getTotal()
-        );
+                PageRequest.of((int) mpResult.getCurrent() - 1, (int) mpResult.getSize()),
+                mpResult.getTotal());
+    }
+
+    /**
+     * 同步任务数量到工艺参数
+     * 
+     * @param taskId      任务ID
+     * @param newQuantity 新数量
+     */
+    @Transactional
+    public void syncQuantityFromTask(String taskId, Integer newQuantity) {
+        InjectionParam param = injectionParamMapper.findByTaskId(taskId);
+        if (param != null && !newQuantity.equals(param.getQuantity())) {
+            param.setQuantity(newQuantity);
+            injectionParamMapper.updateById(param);
+        }
+    }
+
+    /**
+     * 验证数据一致性
+     * 
+     * @param taskId 任务ID
+     * @return 一致性检查结果
+     */
+    public boolean validateDataConsistency(String taskId) {
+        try {
+            InjectionParam param = injectionParamMapper.findByTaskId(taskId);
+            if (param == null) {
+                return true; // 没有参数时认为一致
+            }
+
+            ResponseEntity<TaskDTO> response = productionTaskClient.getTaskById(taskId);
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                return false; // 任务不存在
+            }
+
+            TaskDTO task = response.getBody();
+            if (task == null) {
+                return false; // 任务数据为空
+            }
+            return Objects.equals(param.getQuantity(), task.getQuantity());
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

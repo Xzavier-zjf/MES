@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>简化注塑参数测试</title>
+    <style>
+        body { padding: 20px; font-family: Arial, sans-serif; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+        .result { background: #f5f5f5; padding: 10px; border-radius: 4px; white-space: pre-wrap; font-family: monospace; margin-top: 10px; }
+        .error { color: red; }
+        .success { color: green; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        input, select { padding: 5px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>简化注塑参数测试</h1>
+    
+    <div class="test-section">
+        <h3>测试数据</h3>
+        <div>
+            <label>任务ID: <input type="text" id="taskId" value="TASK001"></label><br>
+            <label>计划ID: <input type="text" id="planId" value="PLAN001"></label><br>
+            <label>设备ID: <input type="text" id="deviceId" value="INJ001"></label><br>
+            <label>数量: <input type="number" id="quantity" value="100"></label><br>
+            <label>注塑压力: <input type="number" id="pressure" value="150.5" step="0.1"></label><br>
+            <label>注塑速度: <input type="number" id="injectionSpeed" value="50.0" step="0.1"></label><br>
+            <label>保压时间: <input type="number" id="holdTime" value="10.0" step="0.1"></label><br>
+            <label>冷却时间: <input type="number" id="coolingTime" value="30.0" step="0.1"></label><br>
+            <label>模具温度: <input type="number" id="moldTemperature" value="180.0" step="0.1"></label><br>
+            <label>料筒温度: <input type="number" id="materialTemperature" value="220.0" step="0.1"></label><br>
+        </div>
+        <button onclick="testCreate()">测试创建</button>
+        <button onclick="testGet()">测试获取</button>
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api/v1/process/injection-params';
+        
+        function getFormData() {
+            return {
+                taskId: document.getElementById('taskId').value,
+                planId: document.getElementById('planId').value,
+                deviceId: document.getElementById('deviceId').value,
+                quantity: parseInt(document.getElementById('quantity').value),
+                pressure: parseFloat(document.getElementById('pressure').value),
+                injectionSpeed: parseFloat(document.getElementById('injectionSpeed').value),
+                holdTime: parseFloat(document.getElementById('holdTime').value),
+                coolingTime: parseFloat(document.getElementById('coolingTime').value),
+                moldTemperature: parseFloat(document.getElementById('moldTemperature').value),
+                materialTemperature: parseFloat(document.getElementById('materialTemperature').value)
+            };
+        }
+        
+        async function testCreate() {
+            const resultDiv = document.getElementById('result');
+            const data = getFormData();
+            
+            try {
+                resultDiv.innerHTML = '发送请求中...\n请求数据:\n' + JSON.stringify(data, null, 2);
+                
+                const response = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const responseText = await response.text();
+                let responseData;
+                
+                try {
+                    responseData = JSON.parse(responseText);
+                } catch (e) {
+                    responseData = responseText;
+                }
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = '✅ 创建成功!\n\n请求数据:\n' + JSON.stringify(data, null, 2) + 
+                                         '\n\n响应数据:\n' + JSON.stringify(responseData, null, 2);
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = '❌ 创建失败!\n\n状态码: ' + response.status + 
+                                         '\n\n请求数据:\n' + JSON.stringify(data, null, 2) + 
+                                         '\n\n错误响应:\n' + JSON.stringify(responseData, null, 2);
+                }
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '❌ 网络错误!\n\n' + error.message + 
+                                     '\n\n请求数据:\n' + JSON.stringify(data, null, 2);
+            }
+        }
+        
+        async function testGet() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                resultDiv.innerHTML = '获取参数列表中...';
+                
+                const response = await fetch(API_BASE + '/all?page=0&size=10');
+                const responseData = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = '✅ 获取成功!\n\n' + JSON.stringify(responseData, null, 2);
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = '❌ 获取失败!\n\n状态码: ' + response.status + 
+                                         '\n\n错误响应:\n' + JSON.stringify(responseData, null, 2);
+                }
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '❌ 网络错误!\n\n' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>数据同步状态检查工具</title>
+    <style>
+        body { padding: 20px; font-family: Arial, sans-serif; }
+        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+        .result { background: #f5f5f5; padding: 10px; border-radius: 4px; white-space: pre-wrap; font-family: monospace; margin-top: 10px; }
+        .error { color: red; }
+        .success { color: green; }
+        .warning { color: orange; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .data-comparison { display: flex; gap: 20px; }
+        .data-column { flex: 1; }
+        .sync-issue { background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 4px; margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <h1>数据同步状态检查工具</h1>
+    
+    <div class="debug-section">
+        <h3>🔍 问题诊断</h3>
+        <p><strong>问题描述</strong>：更新任务数量后，注塑工艺参数页面的任务数量显示仍然是原来的数量</p>
+        <p><strong>可能原因</strong>：</p>
+        <ul>
+            <li>前端缓存没有更新</li>
+            <li>taskDetailsMap 没有正确更新</li>
+            <li>注塑参数列表没有重新获取</li>
+            <li>后端数据更新失败</li>
+        </ul>
+    </div>
+    
+    <div class="debug-section">
+        <h3>1. 获取任务数据</h3>
+        <button onclick="fetchTasksData()">获取任务列表</button>
+        <div id="tasksResult" class="result"></div>
+    </div>
+
+    <div class="debug-section">
+        <h3>2. 获取注塑参数数据</h3>
+        <button onclick="fetchInjectionParamsData()">获取注塑参数列表</button>
+        <div id="paramsResult" class="result"></div>
+    </div>
+
+    <div class="debug-section">
+        <h3>3. 数据对比分析</h3>
+        <button onclick="compareData()">对比任务数量与参数数量</button>
+        <div id="comparisonResult" class="result"></div>
+    </div>
+
+    <div class="debug-section">
+        <h3>4. 测试数据更新</h3>
+        <div>
+            <label>任务ID: <input type="text" id="testTaskId" placeholder="输入任务ID"></label>
+            <label>新数量: <input type="number" id="testQuantity" placeholder="输入新数量" min="1"></label>
+        </div>
+        <button onclick="testUpdateAndCheck()">更新并检查数据同步</button>
+        <div id="updateTestResult" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080';
+        let tasksData = null;
+        let paramsData = null;
+        
+        async function fetchTasksData() {
+            const resultDiv = document.getElementById('tasksResult');
+            
+            try {
+                resultDiv.innerHTML = '获取任务数据中...';
+                
+                const response = await fetch(`${API_BASE}/api/v1/production/tasks?page=0&size=100`);
+                const responseData = await response.json();
+                
+                if (response.ok) {
+                    tasksData = responseData;
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = '✅ 任务数据获取成功!\n\n' + 
+                                         `总数: ${responseData.totalElements}\n` +
+                                         `当前页: ${responseData.content?.length || 0} 条\n\n` +
+                                         JSON.stringify(responseData, null, 2);
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = '❌ 获取任务数据失败!\n\n' + JSON.stringify(responseData, null, 2);
+                }
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '❌ 网络错误!\n\n' + error.message;
+            }
+        }
+        
+        async function fetchInjectionParamsData() {
+            const resultDiv = document.getElementById('paramsResult');
+            
+            try {
+                resultDiv.innerHTML = '获取注塑参数数据中...';
+                
+                const response = await fetch(`${API_BASE}/api/v1/process/injection-params/all?page=0&size=100`);
+                const responseData = await response.json();
+                
+                if (response.ok) {
+                    paramsData = responseData;
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = '✅ 注塑参数数据获取成功!\n\n' + 
+                                         `总数: ${responseData.totalElements}\n` +
+                                         `当前页: ${responseData.content?.length || 0} 条\n\n` +
+                                         JSON.stringify(responseData, null, 2);
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = '❌ 获取注塑参数数据失败!\n\n' + JSON.stringify(responseData, null, 2);
+                }
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '❌ 网络错误!\n\n' + error.message;
+            }
+        }
+        
+        async function compareData() {
+            const resultDiv = document.getElementById('comparisonResult');
+            
+            if (!tasksData || !paramsData) {
+                resultDiv.className = 'result warning';
+                resultDiv.innerHTML = '⚠️ 请先获取任务数据和注塑参数数据';
+                return;
+            }
+            
+            try {
+                const tasks = tasksData.content || [];
+                const params = paramsData.content || [];
+                
+                // 创建任务映射
+                const taskMap = {};
+                tasks.forEach(task => {
+                    taskMap[task.id] = task;
+                });
+                
+                // 分析数据一致性
+                const analysis = {
+                    totalParams: params.length,
+                    matchedQuantities: 0,
+                    mismatchedQuantities: 0,
+                    missingTasks: 0,
+                    issues: []
+                };
+                
+                params.forEach(param => {
+                    const task = taskMap[param.taskId];
+                    
+                    if (!task) {
+                        analysis.missingTasks++;
+                        analysis.issues.push({
+                            type: 'missing_task',
+                            paramId: param.id,
+                            taskId: param.taskId,
+                            message: `参数 ${param.id} 关联的任务 ${param.taskId} 不存在`
+                        });
+                    } else {
+                        if (param.quantity === task.quantity) {
+                            analysis.matchedQuantities++;
+                        } else {
+                            analysis.mismatchedQuantities++;
+                            analysis.issues.push({
+                                type: 'quantity_mismatch',
+                                paramId: param.id,
+                                taskId: param.taskId,
+                                paramQuantity: param.quantity,
+                                taskQuantity: task.quantity,
+                                message: `参数 ${param.id} 数量 ${param.quantity} 与任务 ${param.taskId} 数量 ${task.quantity} 不匹配`
+                            });
+                        }
+                    }
+                });
+                
+                resultDiv.className = analysis.issues.length > 0 ? 'result warning' : 'result success';
+                resultDiv.innerHTML = `📊 数据对比分析结果:\n\n` +
+                                     `总参数数: ${analysis.totalParams}\n` +
+                                     `数量匹配: ${analysis.matchedQuantities}\n` +
+                                     `数量不匹配: ${analysis.mismatchedQuantities}\n` +
+                                     `缺失任务: ${analysis.missingTasks}\n\n`;
+                
+                if (analysis.issues.length > 0) {
+                    resultDiv.innerHTML += `🚨 发现 ${analysis.issues.length} 个问题:\n\n`;
+                    analysis.issues.forEach((issue, index) => {
+                        resultDiv.innerHTML += `${index + 1}. ${issue.message}\n`;
+                    });
+                } else {
+                    resultDiv.innerHTML += `✅ 所有数据一致性检查通过!`;
+                }
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '❌ 数据对比分析失败!\n\n' + error.message;
+            }
+        }
+        
+        async function testUpdateAndCheck() {
+            const taskId = document.getElementById('testTaskId').value;
+            const newQuantity = parseInt(document.getElementById('testQuantity').value);
+            const resultDiv = document.getElementById('updateTestResult');
+            
+            if (!taskId || !newQuantity) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '❌ 请输入任务ID和新数量';
+                return;
+            }
+            
+            try {
+                resultDiv.innerHTML = '🔄 执行更新和同步检查...\n\n';
+                
+                // 1. 获取更新前的数据
+                resultDiv.innerHTML += '1. 获取更新前的任务数据...\n';
+                const beforeResponse = await fetch(`${API_BASE}/api/v1/production/tasks?page=0&size=100`);
+                const beforeData = await response.json();
+                const beforeTask = beforeData.content?.find(t => t.id === taskId);
+                const originalQuantity = beforeTask?.quantity || 0;
+                
+                resultDiv.innerHTML += `   原始数量: ${originalQuantity}\n\n`;
+                
+                // 2. 更新任务数量
+                resultDiv.innerHTML += '2. 更新任务数量...\n';
+                const updateResponse = await fetch(`${API_BASE}/api/v1/production/tasks/${taskId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ quantity: newQuantity })
+                });
+                
+                if (!updateResponse.ok) {
+                    throw new Error(`更新失败: ${updateResponse.status}`);
+                }
+                
+                resultDiv.innerHTML += `   ✅ 任务数量更新成功: ${originalQuantity} → ${newQuantity}\n\n`;
+                
+                // 3. 等待一下，然后检查数据同步
+                resultDiv.innerHTML += '3. 等待数据同步...\n';
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // 4. 重新获取数据验证
+                resultDiv.innerHTML += '4. 验证数据同步...\n';
+                const afterTaskResponse = await fetch(`${API_BASE}/api/v1/production/tasks?page=0&size=100`);
+                const afterTaskData = await afterTaskResponse.json();
+                const afterTask = afterTaskData.content?.find(t => t.id === taskId);
+                
+                const afterParamResponse = await fetch(`${API_BASE}/api/v1/process/injection-params/all?page=0&size=100`);
+                const afterParamData = await afterParamResponse.json();
+                const relatedParams = afterParamData.content?.filter(p => p.taskId === taskId) || [];
+                
+                resultDiv.innerHTML += `   任务当前数量: ${afterTask?.quantity || '未找到'}\n`;
+                resultDiv.innerHTML += `   关联参数数量: ${relatedParams.length}\n`;
+                
+                if (relatedParams.length > 0) {
+                    relatedParams.forEach((param, index) => {
+                        const isSync = param.quantity === afterTask?.quantity;
+                        resultDiv.innerHTML += `   参数${index + 1} (ID: ${param.id}): ${param.quantity} ${isSync ? '✅' : '❌'}\n`;
+                    });
+                }
+                
+                resultDiv.innerHTML += '\n🎯 同步检查完成!\n';
+                resultDiv.innerHTML += `任务数量: ${afterTask?.quantity}\n`;
+                resultDiv.innerHTML += `参数同步状态: ${relatedParams.every(p => p.quantity === afterTask?.quantity) ? '✅ 已同步' : '❌ 未同步'}\n`;
+                
+                resultDiv.className = 'result success';
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML += '\n❌ 测试失败: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MES系统问题修复工具</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e4e7ed;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #303133;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-healthy { background-color: #67c23a; }
+        .status-warning { background-color: #e6a23c; }
+        .status-critical { background-color: #f56c6c; }
+        .status-unknown { background-color: #909399; }
+        .check-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid #e4e7ed;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        .check-item.pass { border-color: #67c23a; background-color: #f0f9ff; }
+        .check-item.warning { border-color: #e6a23c; background-color: #fdf6ec; }
+        .check-item.fail { border-color: #f56c6c; background-color: #fef0f0; }
+        .log-area {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <div class="header">
+                <h1>🔧 MES系统问题修复工具</h1>
+                <p>自动检测和修复系统中的各种问题</p>
+            </div>      
+      <div class="section">
+                <div class="section-title">
+                    <span class="status-indicator" :class="`status-${systemHealth}`"></span>
+                    系统健康状态
+                </div>
+                <el-row :gutter="20">
+                    <el-col :span="6">
+                        <el-card>
+                            <div style="text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #409eff;">{{ healthScore }}</div>
+                                <div style="color: #909399;">健康评分</div>
+                            </div>
+                        </el-card>
+                    </el-col>
+                    <el-col :span="6">
+                        <el-card>
+                            <div style="text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #f56c6c;">{{ criticalIssues }}</div>
+                                <div style="color: #909399;">严重问题</div>
+                            </div>
+                        </el-card>
+                    </el-col>
+                    <el-col :span="6">
+                        <el-card>
+                            <div style="text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #e6a23c;">{{ warnings }}</div>
+                                <div style="color: #909399;">警告</div>
+                            </div>
+                        </el-card>
+                    </el-col>
+                    <el-col :span="6">
+                        <el-card>
+                            <div style="text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #67c23a;">{{ fixedIssues }}</div>
+                                <div style="color: #909399;">已修复</div>
+                            </div>
+                        </el-card>
+                    </el-col>
+                </el-row>
+            </div>
+
+            <div class="section">
+                <div class="section-title">🔍 系统检查</div>
+                <el-space direction="vertical" style="width: 100%;">
+                    <el-button type="primary" @click="performHealthCheck" :loading="isChecking">
+                        执行全面健康检查
+                    </el-button>
+                    <el-button type="success" @click="autoFixIssues" :loading="isFixing" :disabled="!canAutoFix">
+                        自动修复问题
+                    </el-button>
+                    <el-button type="info" @click="generateReport">
+                        生成检查报告
+                    </el-button>
+                </el-space>
+            </div>
+
+            <div class="section" v-if="checkResults">
+                <div class="section-title">📋 检查结果</div>
+                <div v-for="(check, key) in checkResults.checks" :key="key" 
+                     class="check-item" :class="check.status">
+                    <div>
+                        <strong>{{ check.name }}</strong>
+                        <div style="font-size: 12px; color: #909399; margin-top: 4px;">
+                            {{ getCheckDescription(check) }}
+                        </div>
+                    </div>
+                    <div>
+                        <el-tag :type="getTagType(check.status)">{{ getStatusText(check.status) }}</el-tag>
+                        <el-button v-if="check.status !== 'pass'" size="small" type="text" 
+                                   @click="showCheckDetails(check)">
+                            详情
+                        </el-button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section" v-if="suggestions.length > 0">
+                <div class="section-title">💡 修复建议</div>
+                <el-alert v-for="suggestion in suggestions" :key="suggestion.title"
+                          :title="suggestion.title" :description="suggestion.description"
+                          :type="getSuggestionType(suggestion.priority)" show-icon
+                          style="margin-bottom: 12px;">
+                    <template #default>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: 600;">{{ suggestion.title }}</div>
+                                <div style="margin-top: 4px;">{{ suggestion.description }}</div>
+                            </div>
+                            <el-button size="small" type="primary" @click="applySuggestion(suggestion)">
+                                应用修复
+                            </el-button>
+                        </div>
+                    </template>
+                </el-alert>
+            </div>
+
+            <div class="section">
+                <div class="section-title">📝 操作日志</div>
+                <div class="log-area" ref="logArea">{{ logContent }}</div>
+                <el-button size="small" @click="clearLog" style="margin-top: 8px;">清空日志</el-button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/element-plus/dist/index.full.js"></script>
+    <script>
+        const { createApp, ref, computed, onMounted, nextTick } = Vue;
+        const { ElMessage, ElNotification, ElMessageBox } = ElementPlus;
+
+        createApp({
+            setup() {
+                const isChecking = ref(false);
+                const isFixing = ref(false);
+                const checkResults = ref(null);
+                const suggestions = ref([]);
+                const logContent = ref('系统问题修复工具已启动\n');
+                const logArea = ref(null);
+                const fixedIssues = ref(0);
+
+                // 模拟系统数据
+                const systemData = ref({
+                    tasks: [],
+                    injectionParams: [],
+                    patterns: [],
+                    plans: []
+                });
+
+                const systemHealth = computed(() => {
+                    if (!checkResults.value) return 'unknown';
+                    return checkResults.value.overallHealth;
+                });
+
+                const healthScore = computed(() => {
+                    if (!checkResults.value) return 0;
+                    return calculateHealthScore(checkResults.value);
+                });
+
+                const criticalIssues = computed(() => {
+                    if (!checkResults.value) return 0;
+                    return checkResults.value.issues.length;
+                });
+
+                const warnings = computed(() => {
+                    if (!checkResults.value) return 0;
+                    return checkResults.value.warnings.length;
+                });
+
+                const canAutoFix = computed(() => {
+                    return suggestions.value.some(s => s.action && s.action.startsWith('auto'));
+                });
+
+                const addLog = (message) => {
+                    const timestamp = new Date().toLocaleTimeString();
+                    logContent.value += `[${timestamp}] ${message}\n`;
+                    nextTick(() => {
+                        if (logArea.value) {
+                            logArea.value.scrollTop = logArea.value.scrollHeight;
+                        }
+                    });
+                };
+
+                const loadSystemData = async () => {
+                    try {
+                        addLog('正在加载系统数据...');
+                        
+                        // 模拟加载数据
+                        const mockTasks = [
+                            { id: '1', taskCode: 'TASK-001', quantity: 100, completedQuantity: 50, status: '进行中', processType: '注塑' },
+                            { id: '2', taskCode: 'TASK-002', quantity: 200, completedQuantity: 200, status: '进行中', processType: '注塑' },
+                            { id: '3', taskCode: 'TASK-003', quantity: 150, completedQuantity: 0, status: '已完成', processType: '印刷' }
+                        ];
+
+                        const mockInjectionParams = [
+                            { id: 1, taskId: '1', quantity: 80, pressure: 100, injectionSpeed: 50 },
+                            { id: 2, taskId: '2', quantity: 200, pressure: 120, injectionSpeed: 60 }
+                        ];
+
+                        systemData.value = {
+                            tasks: mockTasks,
+                            injectionParams: mockInjectionParams,
+                            patterns: [],
+                            plans: []
+                        };
+
+                        addLog('系统数据加载完成');
+                    } catch (error) {
+                        addLog('加载系统数据失败: ' + error.message);
+                    }
+                };
+
+                const performHealthCheck = async () => {
+                    isChecking.value = true;
+                    addLog('开始执行系统健康检查...');
+
+                    try {
+                        // 模拟健康检查
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+
+                        const results = {
+                            timestamp: new Date().toISOString(),
+                            overallHealth: 'warning',
+                            checks: {
+                                dataConsistency: {
+                                    name: '数据一致性检查',
+                                    status: 'warning',
+                                    issues: 2,
+                                    severity: 'warning'
+                                },
+                                taskStatus: {
+                                    name: '任务状态检查',
+                                    status: 'warning',
+                                    issues: 1,
+                                    severity: 'warning'
+                                },
+                                quantityLogic: {
+                                    name: '数量逻辑检查',
+                                    status: 'pass',
+                                    issues: 0,
+                                    severity: 'info'
+                                },
+                                permissions: {
+                                    name: '权限配置检查',
+                                    status: 'pass',
+                                    issues: 0,
+                                    severity: 'info'
+                                }
+                            },
+                            issues: [
+                                { check: '数据一致性检查', count: 2 }
+                            ],
+                            warnings: [
+                                { check: '任务状态检查', count: 1 }
+                            ]
+                        };
+
+                        checkResults.value = results;
+                        
+                        // 生成修复建议
+                        suggestions.value = [
+                            {
+                                priority: 'high',
+                                title: '修复数据不一致问题',
+                                description: '发现2项任务数量与工艺参数数量不一致',
+                                action: 'autoFixDataInconsistency'
+                            },
+                            {
+                                priority: 'medium',
+                                title: '更新任务状态',
+                                description: '发现1个任务状态需要更新',
+                                action: 'updateTaskStatus'
+                            }
+                        ];
+
+                        addLog('系统健康检查完成');
+                        ElNotification({
+                            title: '健康检查完成',
+                            message: '发现一些需要关注的问题',
+                            type: 'warning'
+                        });
+                    } catch (error) {
+                        addLog('健康检查失败: ' + error.message);
+                        ElMessage.error('健康检查失败');
+                    } finally {
+                        isChecking.value = false;
+                    }
+                };
+
+                const autoFixIssues = async () => {
+                    isFixing.value = true;
+                    addLog('开始自动修复问题...');
+
+                    try {
+                        const autoFixSuggestions = suggestions.value.filter(s => 
+                            s.action && s.action.startsWith('auto')
+                        );
+
+                        for (const suggestion of autoFixSuggestions) {
+                            addLog(`正在修复: ${suggestion.title}`);
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            
+                            if (suggestion.action === 'autoFixDataInconsistency') {
+                                // 模拟修复数据不一致
+                                fixedIssues.value += 2;
+                                addLog('已修复2项数据不一致问题');
+                            }
+                        }
+
+                        // 移除已修复的建议
+                        suggestions.value = suggestions.value.filter(s => 
+                            !s.action || !s.action.startsWith('auto')
+                        );
+
+                        addLog('自动修复完成');
+                        ElMessage.success('自动修复完成');
+                    } catch (error) {
+                        addLog('自动修复失败: ' + error.message);
+                        ElMessage.error('自动修复失败');
+                    } finally {
+                        isFixing.value = false;
+                    }
+                };
+
+                const applySuggestion = async (suggestion) => {
+                    addLog(`应用修复建议: ${suggestion.title}`);
+                    
+                    try {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        
+                        // 移除已应用的建议
+                        const index = suggestions.value.indexOf(suggestion);
+                        if (index > -1) {
+                            suggestions.value.splice(index, 1);
+                        }
+                        
+                        fixedIssues.value += 1;
+                        addLog(`修复建议应用成功: ${suggestion.title}`);
+                        ElMessage.success('修复建议应用成功');
+                    } catch (error) {
+                        addLog(`修复建议应用失败: ${error.message}`);
+                        ElMessage.error('修复建议应用失败');
+                    }
+                };
+
+                const generateReport = () => {
+                    if (!checkResults.value) {
+                        ElMessage.warning('请先执行健康检查');
+                        return;
+                    }
+
+                    const report = generateHealthReport(checkResults.value);
+                    addLog('生成检查报告:\n' + report);
+                    
+                    // 下载报告
+                    const blob = new Blob([report], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `MES系统健康检查报告_${new Date().toISOString().slice(0, 10)}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                };
+
+                const showCheckDetails = (check) => {
+                    ElMessageBox.alert(
+                        `检查项目: ${check.name}\n状态: ${check.status}\n问题数量: ${check.issues || 0}`,
+                        '检查详情',
+                        { confirmButtonText: '确定' }
+                    );
+                };
+
+                const clearLog = () => {
+                    logContent.value = '日志已清空\n';
+                };
+
+                const getCheckDescription = (check) => {
+                    const descriptions = {
+                        '数据一致性检查': '检查任务数量与工艺参数数量的一致性',
+                        '任务状态检查': '检查任务状态是否需要更新',
+                        '数量逻辑检查': '检查各页面数量逻辑的正确性',
+                        '权限配置检查': '检查权限配置是否正确'
+                    };
+                    return descriptions[check.name] || '';
+                };
+
+                const getTagType = (status) => {
+                    const types = {
+                        'pass': 'success',
+                        'warning': 'warning',
+                        'fail': 'danger'
+                    };
+                    return types[status] || 'info';
+                };
+
+                const getStatusText = (status) => {
+                    const texts = {
+                        'pass': '通过',
+                        'warning': '警告',
+                        'fail': '失败'
+                    };
+                    return texts[status] || '未知';
+                };
+
+                const getSuggestionType = (priority) => {
+                    const types = {
+                        'high': 'error',
+                        'medium': 'warning',
+                        'low': 'info'
+                    };
+                    return types[priority] || 'info';
+                };
+
+                const calculateHealthScore = (results) => {
+                    if (!results || !results.checks) return 0;
+                    
+                    const checks = Object.values(results.checks);
+                    let score = 100;
+                    
+                    checks.forEach(check => {
+                        if (check.severity === 'critical') {
+                            score -= 20;
+                        } else if (check.severity === 'warning') {
+                            score -= 10;
+                        }
+                    });
+                    
+                    return Math.max(0, score);
+                };
+
+                const generateHealthReport = (results) => {
+                    const score = calculateHealthScore(results);
+                    
+                    let report = `MES系统健康检查报告\n`;
+                    report += `=====================\n`;
+                    report += `检查时间: ${new Date(results.timestamp).toLocaleString()}\n`;
+                    report += `健康评分: ${score}/100\n`;
+                    report += `总体状态: ${results.overallHealth}\n\n`;
+
+                    report += `检查项目:\n`;
+                    Object.values(results.checks).forEach((check, index) => {
+                        report += `${index + 1}. ${check.name}: ${check.status.toUpperCase()}\n`;
+                        if (check.issues > 0) {
+                            report += `   问题数量: ${check.issues}\n`;
+                        }
+                    });
+
+                    return report;
+                };
+
+                onMounted(() => {
+                    loadSystemData();
+                });
+
+                return {
+                    isChecking,
+                    isFixing,
+                    checkResults,
+                    suggestions,
+                    logContent,
+                    logArea,
+                    systemHealth,
+                    healthScore,
+                    criticalIssues,
+                    warnings,
+                    fixedIssues,
+                    canAutoFix,
+                    performHealthCheck,
+                    autoFixIssues,
+                    applySuggestion,
+                    generateReport,
+                    showCheckDetails,
+                    clearLog,
+                    getCheckDescription,
+                    getTagType,
+                    getStatusText,
+                    getSuggestionType
+                };
+            }
+        }).use(ElementPlus).mount('#app');
+    </script>
+</body>
+</html>

@@ -20,12 +20,30 @@
       </el-table-column>
       <el-table-column label="进度" width="150">
         <template #default="{ row }">
-          <el-progress :percentage="getProgress(row.status)" :color="progressColor(row.status)" />
+          <el-progress :percentage="getProgress(row)" :color="progressColor(row.status)" />
         </template>
       </el-table-column>
-      <el-table-column label="状态" width="120" align="center">
+      <el-table-column label="状态" width="150" align="center">
         <template #default="{ row }">
-          <span :class="`status-badge status-${getStatusClass(row.status)}`">{{ row.status }}</span>
+          <div class="status-container">
+            <span :class="`status-badge status-${getStatusClass(row.status)}`">
+              {{ row.status }}
+            </span>
+            <el-tooltip 
+              v-if="needsStatusUpdate(row)" 
+              :content="`建议更新为: ${getSuggestedStatus(row)}`" 
+              placement="top"
+            >
+              <el-button 
+                size="small" 
+                type="warning" 
+                icon="Warning"
+                circle
+                @click.stop="$emit('suggest-status-update', row)"
+                style="margin-left: 5px;"
+              />
+            </el-tooltip>
+          </div>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="200" align="center">
@@ -62,7 +80,7 @@ const props = defineProps({
 })
 
 
-const emit = defineEmits(['edit', 'delete'])
+const emit = defineEmits(['edit', 'delete', 'suggest-status-update'])
 
 const pageSize = ref(10)
 const currentPage = ref(1)
@@ -94,14 +112,35 @@ function getStatusClass(status) {
   return map[status] || 'pending'
 }
 
-function getProgress(status) {
-  const map = {
+function getProgress(row) {
+  if (!row.quantity || row.quantity === 0) return 0
+  
+  // 特殊处理：如果状态是已完成，进度应该是100%
+  if (row.status === '已完成') {
+    return 100
+  }
+  
+  // 如果有实际完成数量，使用实际进度
+  if (row.completedQuantity !== undefined && row.completedQuantity >= 0) {
+    const actualProgress = Math.min(100, Math.round((row.completedQuantity / row.quantity) * 100))
+    
+    // 如果实际进度是100%但状态不是已完成，显示99%以示区别
+    if (actualProgress === 100 && row.status !== '已完成') {
+      return 99
+    }
+    
+    return actualProgress
+  }
+  
+  // 基于状态的基础进度（当没有完成数量数据时）
+  const baseProgress = {
     '待下发': 0,
     '进行中': 50,
     '已完成': 100,
     '已暂停': 30
-  }
-  return map[status] || 0
+  }[row.status] || 0
+  
+  return baseProgress
 }
 
 function progressColor(status) {
@@ -112,6 +151,54 @@ function progressColor(status) {
     '已暂停': '#f59e0b'
   }
   return map[status] || '#e2e8f0'
+}
+
+// 计算建议的状态
+function getSuggestedStatus(row) {
+  const { status, quantity, completedQuantity = 0 } = row
+  
+  // 完成数量达到任务数量，建议设为已完成
+  if (completedQuantity >= quantity && quantity > 0) {
+    return '已完成'
+  }
+  
+  // 有生产进度但未完成，建议设为进行中
+  if (completedQuantity > 0 && completedQuantity < quantity && status !== '已暂停') {
+    return '进行中'
+  }
+  
+  // 没有生产进度
+  if (completedQuantity === 0) {
+    return status === '已暂停' ? '已暂停' : '待下发'
+  }
+  
+  return status
+}
+
+// 检查状态是否需要更新
+function needsStatusUpdate(row) {
+  const suggestedStatus = getSuggestedStatus(row)
+  return suggestedStatus !== row.status
+}
+
+// 获取状态更新原因
+function getStatusUpdateReason(row) {
+  const suggestedStatus = getSuggestedStatus(row)
+  const { quantity, completedQuantity = 0 } = row
+  
+  if (suggestedStatus === '已完成') {
+    return `完成数量 ${completedQuantity} 已达到任务数量 ${quantity}`
+  }
+  
+  if (suggestedStatus === '进行中') {
+    return `已有生产进度 ${completedQuantity}/${quantity}`
+  }
+  
+  if (suggestedStatus === '待下发') {
+    return '尚未开始生产'
+  }
+  
+  return '基于当前进度的建议'
 }
 
 function onEdit(row) {
@@ -173,5 +260,11 @@ function onRowClick(row) {
   display: flex;
   justify-content: center;
   padding: 20px;
+}
+
+.status-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

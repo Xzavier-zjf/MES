@@ -3,11 +3,15 @@
       <HeaderSection 
     title=" 🎨&nbsp印刷图案管理"
     subtitle="管理印刷图案资源，为印刷任务提供图案支持。"
-    :showStats="false"  
-    :value1="totalTasks"
-    :value2="inProgressTasks"
-    :value3="completedTasks"
-    :value4="pendingTasks"/>
+    :showStats="true"  
+    :card1="'图案总数'"
+    :card2="'已配置图案'"
+    :card3="'待配置图案'"
+    :card4="'异常图案'"
+    :value1="totalPatterns"
+    :value2="configuredPatterns"
+    :value3="pendingPatterns"
+    :value4="errorPatterns"/>
 
     <!-- 筛选表单 -->
     <el-card shadow="hover" class="table-card" style="margin-bottom: 20px;">
@@ -37,6 +41,7 @@
           <el-button type="primary" @click="filterPatterns">筛选</el-button>
           <el-button @click="resetFilters">重置</el-button>
           <el-button type="success" @click="openDialog">新增图案</el-button>
+          <el-button type="info" @click="validateQuantityLogic">验证数量逻辑</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -83,9 +88,14 @@
               {{ deviceMap[row.deviceId] || row.deviceId }}
             </template>
           </el-table-column>
-          <el-table-column label="任务数量" width="120" align="center">
+          <el-table-column label="关联任务" width="120" align="center">
             <template #default="{ row }">
-              <el-tag >{{ row.quantity }} 件</el-tag>
+              <el-tag v-if="row.taskId" type="success" size="small">
+                已关联
+              </el-tag>
+              <el-tag v-else type="info" size="small">
+                未关联
+              </el-tag>
             </template>
           </el-table-column>
           <!-- <el-table-column label="进度" width="150">
@@ -278,13 +288,43 @@
 import HeaderSection from '@/components/HeaderSection.vue'
 import TopNavBar from '@/components/NavBar.vue'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessageBox, ElMessage, ElNotification } from 'element-plus'
+
+// 安全的消息显示函数
+const showMessage = (type, message) => {
+  try {
+    if (ElMessage && typeof ElMessage[type] === 'function') {
+      ElMessage[type](message)
+    } else {
+      console.log(`${type.toUpperCase()}: ${message}`)
+      alert(`${type.toUpperCase()}: ${message}`)
+    }
+  } catch (error) {
+    console.error('显示消息失败:', error)
+    alert(`${type.toUpperCase()}: ${message}`)
+  }
+}
+
+const showNotification = (options) => {
+  try {
+    if (ElNotification && typeof ElNotification === 'function') {
+      ElNotification(options)
+    } else {
+      console.log(`通知: ${options.title} - ${options.message}`)
+      alert(`${options.title}: ${options.message}`)
+    }
+  } catch (error) {
+    console.error('显示通知失败:', error)
+    alert(`${options.title}: ${options.message}`)
+  }
+}
 import { getPrintPatterns, updatePrintPattern, deletePrintPattern, createPrintPattern } from '@/api/pattern'
 import { getPlans } from '@/api/plans'
 import { getTasks } from '@/api/tasks'
 import { getDevices } from '@/api/devices'
 import { uploadImage, getImageUrl, validateImageUrl } from '@/api/upload'
 import { useAppStore } from '@/stores'
+import { validatePatternQuantityLogic, generateQuantityLogicReport } from '@/utils/quantityLogicValidator'
 
 const appStore = useAppStore()
 
@@ -302,6 +342,34 @@ const patterns = ref([])
 const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+
+// ✅ 图案统计
+const totalPatterns = computed(() => patterns.value.length)
+const configuredPatterns = computed(() => 
+  patterns.value.filter(p => 
+    p.patternCode && p.patternName && p.machineModel && 
+    p.defaultPrintSpeed && p.defaultPressure && p.imageUrl
+  ).length
+)
+const pendingPatterns = computed(() => 
+  patterns.value.filter(p => 
+    !p.patternCode || !p.patternName || !p.machineModel || 
+    !p.defaultPrintSpeed || !p.defaultPressure || !p.imageUrl
+  ).length
+)
+const errorPatterns = computed(() => 
+  patterns.value.filter(p => 
+    (p.defaultPrintSpeed && p.defaultPrintSpeed < 0) || 
+    (p.defaultPressure && p.defaultPressure < 0) ||
+    (p.imageUrl && !isValidImageUrl(p.imageUrl))
+  ).length
+)
+
+// 验证图片URL格式
+const isValidImageUrl = (url) => {
+  if (!url) return false
+  return url.startsWith('http') || url.startsWith('/') || url.startsWith('data:image')
+}
 
 // 检查是否有活跃的筛选条件
 const hasActiveFilters = computed(() => {
@@ -441,7 +509,7 @@ const editPattern = (row) => {
   // 验证行数据
   if (!row || !row.id) {
     console.error('编辑图案失败：无效的行数据', row)
-    ElMessage.error('编辑失败：数据无效')
+    showMessage('error', '编辑失败：数据无效')
     return
   }
   
@@ -562,7 +630,7 @@ const handleFileChange = async (file) => {
   try {
     if (file.raw) {
       // 显示上传进度
-      ElMessage.info('正在上传图片...');
+      showMessage('info', '正在上传图片...')
       
       // 上传到服务器
       const uploadResult = await uploadImage(file.raw);
@@ -572,11 +640,11 @@ const handleFileChange = async (file) => {
       form.value.imageUrl = uploadResult.url || uploadResult.path;
       previewImageUrl.value = getImageUrl(form.value.imageUrl);
       
-      ElMessage.success('图片上传成功');
+      showMessage('success', '图片上传成功')
     }
   } catch (error) {
     console.error('文件上传失败:', error);
-    ElMessage.error('图片上传失败: ' + (error.message || '未知错误'));
+    showMessage('error', '图片上传失败: ' + (error.message || '未知错误'))
   }
 }
 
@@ -592,11 +660,11 @@ const beforeFileUpload = (file) => {
   const isLt5M = file.size / 1024 / 1024 < 5;
 
   if (!isImage) {
-    ElMessage.error('只能上传图片文件!');
+    showMessage('error', '只能上传图片文件!')
     return false;
   }
   if (!isLt5M) {
-    ElMessage.error('图片大小不能超过 5MB!');
+    showMessage('error', '图片大小不能超过 5MB!')
     return false;
   }
   return true;
@@ -624,7 +692,7 @@ const clearImage = () => {
 
 // 图片加载错误处理
 const handleImageError = () => {
-  ElMessage.warning('图片加载失败，请检查URL是否正确');
+  showMessage('warning', '图片加载失败，请检查URL是否正确')
   previewImageUrl.value = '';
 }
 
@@ -635,12 +703,12 @@ const validateImage = async (url) => {
   try {
     const isValid = await validateImageUrl(url);
     if (!isValid) {
-      ElMessage.warning('图片URL无效，请检查链接是否正确');
+      showMessage('warning', '图片URL无效，请检查链接是否正确')
     }
     return isValid;
   } catch (error) {
     console.error('图片验证失败:', error);
-    ElMessage.warning('图片验证失败');
+    showMessage('warning', '图片验证失败')
     return false;
   }
 }
@@ -810,6 +878,56 @@ const debugRow = (row) => {
   
   // 显示在页面上
   alert(`调试信息:\nID: ${row.id}\n图案编号: ${row.patternCode}\n图案名称: ${row.patternName}\n适用机型: ${row.machineModel}`)
+}
+
+// ✅ 验证数量逻辑
+const validateQuantityLogic = async () => {
+  try {
+    showMessage('info', '开始验证数量逻辑...')
+    
+    // 获取所有必要数据
+    const [tasksResponse, plansResponse] = await Promise.all([
+      getTasks({ page: 0, size: 1000 }),
+      getPlans(0, 1000)
+    ])
+    
+    const allTasks = tasksResponse.content || []
+    const allPlans = plansResponse.content || []
+    
+    // 执行验证
+    const validationResult = validatePatternQuantityLogic(
+      patterns.value, 
+      allTasks, 
+      allPlans
+    )
+    
+    console.log('图案管理数量逻辑验证结果:', validationResult)
+    
+    if (validationResult.isValid) {
+      showNotification({
+        title: '验证通过',
+        message: `数量逻辑验证通过！共验证 ${validationResult.summary.totalPatterns} 个图案`,
+        type: 'success',
+        duration: 3000
+      })
+    } else {
+      showNotification({
+        title: '发现问题',
+        message: `发现 ${validationResult.issues.length} 个严重问题，${validationResult.warnings.length} 个警告`,
+        type: 'warning',
+        duration: 5000
+      })
+    }
+    
+    // 输出详细报告到控制台
+    const report = generateQuantityLogicReport({ summary: {}, issues: [], warnings: [] }, validationResult)
+    console.log('详细验证报告:')
+    console.log(report)
+    
+  } catch (error) {
+    console.error('验证失败:', error)
+    showMessage('error', '验证过程中发生错误: ' + (error.message || '未知错误'))
+  }
 }
 
 // 在onMounted中添加这些调用

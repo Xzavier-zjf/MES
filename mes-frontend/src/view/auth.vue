@@ -27,67 +27,178 @@
           <p class="form-subtitle">{{ isLogin ? '请登录您的账户以继续' : '注册新账户以开始使用系统' }}</p>
         </div>
 
-        <el-form :model="form" ref="formRef" label-position="top" size="large">
-          <el-form-item label="账号">
-            <el-input v-model="form.username" prefix-icon="User" placeholder="请输入账号" />
+        <el-form 
+          :model="form" 
+          :rules="rules"
+          ref="formRef" 
+          label-position="top" 
+          size="large"
+          @keyup.enter="handleSubmit"
+        >
+          <el-form-item label="账号" prop="username">
+            <el-input 
+              v-model="form.username" 
+              prefix-icon="User" 
+              placeholder="请输入账号"
+              :disabled="loading"
+              clearable
+            />
           </el-form-item>
 
-          <el-form-item label="密码">
-            <el-input v-model="form.password" type="password" prefix-icon="Lock" placeholder="请输入密码" />
+          <el-form-item label="密码" prop="password">
+            <el-input 
+              v-model="form.password" 
+              type="password" 
+              prefix-icon="Lock" 
+              placeholder="请输入密码"
+              :disabled="loading"
+              show-password
+              clearable
+            />
           </el-form-item>
 
-          <el-form-item v-if="!isLogin" label="确认密码">
-            <el-input v-model="form.confirmPassword" type="password" prefix-icon="Lock" placeholder="请再次输入密码" />
+          <el-form-item v-if="!isLogin" label="确认密码" prop="confirmPassword">
+            <el-input 
+              v-model="form.confirmPassword" 
+              type="password" 
+              prefix-icon="Lock" 
+              placeholder="请再次输入密码"
+              :disabled="loading"
+              show-password
+              clearable
+            />
           </el-form-item>
 
-          <el-button type="primary" class="submit-btn" @click="handleSubmit" round>{{ isLogin ? '登录' : '注册' }}</el-button>
+          <el-button 
+            type="primary" 
+            class="submit-btn" 
+            @click="handleSubmit" 
+            :loading="loading"
+            :disabled="loading"
+            round
+          >
+            {{ loading ? '处理中...' : (isLogin ? '登录' : '注册') }}
+          </el-button>
         </el-form>
 
         <div class="form-footer">
           <span>{{ isLogin ? '还没有账号？' : '已有账号？' }}</span>
-          <span class="switch-link" @click="isLogin = !isLogin">{{ isLogin ? '立即注册' : '立即登录' }}</span>
+          <span class="switch-link" @click="switchMode" :class="{ disabled: loading }">
+            {{ isLogin ? '立即注册' : '立即登录' }}
+          </span>
         </div>
       </el-card>
     </div>
   </div>
 </template>
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { login, register } from '@/api/auth' // ✅ 导入刚写的接口方法
+import { useAuthStore } from '@/stores/auth'
+import { login, register } from '@/api/auth'
 
 const router = useRouter()
+const route = useRoute()
+const authStore = useAuthStore()
+
 const isLogin = ref(true)
+const loading = ref(false)
 const form = ref({
   username: '',
   password: '',
   confirmPassword: '',
 })
 
+// 表单验证规则
+const formRef = ref()
+const rules = {
+  username: [
+    { required: true, message: '请输入账号', trigger: 'blur' },
+    { min: 3, max: 20, message: '账号长度应为3-20个字符', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码长度不能少于6个字符', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, message: '请确认密码', trigger: 'blur' },
+    { 
+      validator: (rule, value, callback) => {
+        if (value !== form.value.password) {
+          callback(new Error('两次输入的密码不一致'))
+        } else {
+          callback()
+        }
+      }, 
+      trigger: 'blur' 
+    }
+  ]
+}
+
 const handleSubmit = async () => {
+  if (!formRef.value) return
+  
   try {
+    // 表单验证
+    await formRef.value.validate()
+    loading.value = true
+    
     if (isLogin.value) {
-      const token = await login(form.value.username, form.value.password)
-      localStorage.setItem('token', token) // ✅ 保存 JWT
-      ElMessage.success('登录成功，正在跳转首页...')
-      setTimeout(() => router.push('/home'), 1000)
+      // 登录逻辑
+      const response = await login(form.value.username, form.value.password)
+      
+      // 使用认证store管理登录状态
+      authStore.login(response.token || response, response.user)
+      
+      ElMessage.success('登录成功！')
+      
+      // 获取重定向路径，默认跳转到首页
+      const redirectPath = route.query.redirect || '/home'
+      await router.push(redirectPath)
+      
     } else {
-      if (form.value.password !== form.value.confirmPassword) {
-        ElMessage.error('两次密码不一致')
-        return
-      }
+      // 注册逻辑
       await register({
         username: form.value.username,
         password: form.value.password
       })
+      
       ElMessage.success('注册成功，请登录')
       isLogin.value = true
+      
+      // 清空确认密码字段
+      form.value.confirmPassword = ''
     }
-  } catch (err) {
-    ElMessage.error(err.message || '请求失败')
+  } catch (error) {
+    console.error('认证失败:', error)
+    ElMessage.error(error.message || (isLogin.value ? '登录失败' : '注册失败'))
+  } finally {
+    loading.value = false
   }
 }
+
+// 切换登录/注册模式
+const switchMode = () => {
+  isLogin.value = !isLogin.value
+  // 清空表单
+  form.value = {
+    username: '',
+    password: '',
+    confirmPassword: '',
+  }
+  // 清除验证状态
+  if (formRef.value) {
+    formRef.value.clearValidate()
+  }
+}
+
+// 组件挂载时检查是否已登录
+onMounted(() => {
+  if (authStore.isAuthenticated) {
+    router.push('/home')
+  }
+})
 </script>
 
 
@@ -214,5 +325,19 @@ const handleSubmit = async () => {
   font-weight: 600;
   margin-left: 5px;
   cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.switch-link:hover {
+  color: #2563eb;
+}
+
+.switch-link.disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.submit-btn {
+  transition: all 0.3s ease;
 }
 </style>

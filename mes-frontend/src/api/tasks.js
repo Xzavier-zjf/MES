@@ -58,10 +58,51 @@ export const updateTask = async (id, taskData) => {
   }
 }
 
+// 更新任务数量
+export const updateTaskQuantity = async (taskId, quantity) => {
+  try {
+    const taskData = { quantity: quantity }
+    const response = await updateTask(taskId, taskData)
+    return response
+  } catch (error) {
+    throw new Error('更新任务数量失败: ' + error.message)
+  }
+}
+
 export const deleteTask = async (id) => {
   const res = await fetch(`${BASE_URL}/${id}`, {
     method: 'DELETE',
   })
   if (!res.ok) throw new Error('删除任务失败')
   return await res.text()
+}
+
+// 更新任务状态
+export const updateTaskStatus = async (taskId, newStatus, reason = '') => {
+  try {
+    const taskData = { 
+      status: newStatus,
+      reason: reason,
+      timestamp: new Date().toISOString()
+    }
+    
+    const response = await updateTask(taskId, taskData)
+    return response
+  } catch (error) {
+    throw new Error('更新任务状态失败: ' + error.message)
+  }
+}
+
+// 批量状态更新
+export const batchUpdateTaskStatus = async (updates) => {
+  try {
+    const promises = updates.map(update => 
+      updateTaskStatus(update.taskId, update.suggestedStatus, update.reason)
+    )
+    
+    const results = await Promise.all(promises)
+    return results
+  } catch (error) {
+    throw new Error('批量更新任务状态失败: ' + error.message)
+  }
 } 

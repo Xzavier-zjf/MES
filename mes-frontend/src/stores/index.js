@@ -19,6 +19,26 @@ export const useAppStore = defineStore('app', () => {
   const completedTasks = computed(() => tasks.value.filter(t => t.status === '已完成').length)
   const pendingTasks = computed(() => tasks.value.filter(t => t.status === '待下发').length)
   
+  // 基于数量的任务统计
+  const totalTaskQuantity = computed(() => 
+    tasks.value.reduce((sum, task) => sum + (task.quantity || 0), 0)
+  )
+  const completedTaskQuantity = computed(() => 
+    tasks.value
+      .filter(t => t.status === '已完成')
+      .reduce((sum, task) => sum + (task.quantity || 0), 0)
+  )
+  const inProgressTaskQuantity = computed(() => 
+    tasks.value
+      .filter(t => t.status === '进行中')
+      .reduce((sum, task) => sum + (task.quantity || 0), 0)
+  )
+  const pendingTaskQuantity = computed(() => 
+    tasks.value
+      .filter(t => t.status === '待下发')
+      .reduce((sum, task) => sum + (task.quantity || 0), 0)
+  )
+  
   // 设备数据
   const devices = ref([])
   const totalDevices = computed(() => devices.value.length)
@@ -132,6 +152,12 @@ export const useAppStore = defineStore('app', () => {
     inProgressTasks,
     completedTasks,
     pendingTasks,
+    
+    // 基于数量的任务统计
+    totalTaskQuantity,
+    completedTaskQuantity,
+    inProgressTaskQuantity,
+    pendingTaskQuantity,
     
     // 设备统计
     totalDevices,

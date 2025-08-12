@@ -17,7 +17,7 @@ public class InjectionParamCreateDTO {
 
     private Float pressure;
 
-    private int quantity;
+    private Integer quantity;
 
     private Float injectionSpeed;
 

@@ -21,6 +21,7 @@
       :tasks="tasks"
       @edit="editTask"
       @delete="handleDeleteTask"
+      @suggest-status-update="handleStatusSuggestion"
     />
 
     <TaskDialog
@@ -44,7 +45,7 @@ import TaskFilter from '@/components/TaskFilter.vue'
 import TaskTable from '@/components/TaskTable.vue'
 import TaskDialog from '@/components/TaskDialog.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getTasks, createTask, updateTask, deleteTask } from '@/api/tasks'
+import { getTasks, createTask, updateTask, deleteTask, updateTaskStatus } from '@/api/tasks'
 import { getPlans } from '@/api/plans'
 import { getDevices, updateDeviceStatus, getDeviceById } from '@/api/devices'
 import { useAppStore } from '@/stores'
@@ -192,7 +193,9 @@ const loadPlans = async () => {
       planOptions.value.push({ 
         label: plan.planCode, 
         value: cleanCode,
-        productName: plan.productName // 添加productionName到选项
+        productName: plan.productName, // 添加productName到选项
+        totalQuantity: plan.totalQuantity, // ✅ 添加总数量信息
+        id: plan.id // ✅ 添加计划ID
       })
     })
   } catch (err) {
@@ -231,17 +234,39 @@ const submitTask = async (data) => {
       return ElMessage.error('请选择有效的计划或设备编号')
     }
 
-    // 只在新建任务时检查设备状态
+    // 只在新建任务时检查设备状态和数量
     if (!isEditing.value) {
-      // 1️⃣ 获取设备状态
+      // 1️⃣ 验证任务数量是否合理
+      const relatedPlan = planOptions.value.find(p => p.value === data.planCode)
+      if (relatedPlan && relatedPlan.totalQuantity) {
+        const relatedTasks = tasks.value.filter(t => t.planCode === data.planCode)
+        const currentTaskTotal = relatedTasks.reduce((sum, task) => sum + (task.quantity || 0), 0)
+        const afterAddTotal = currentTaskTotal + data.quantity
+        
+        if (afterAddTotal > relatedPlan.totalQuantity) {
+          return ElMessage.error(
+            `任务数量超限！计划总数量: ${relatedPlan.totalQuantity}，` +
+            `已分配: ${currentTaskTotal}，本次添加: ${data.quantity}，` +
+            `可用数量: ${relatedPlan.totalQuantity - currentTaskTotal}`
+          )
+        }
+        
+        // 提示剩余可分配数量
+        const remaining = relatedPlan.totalQuantity - afterAddTotal
+        if (remaining > 0) {
+          console.log(`任务创建后，计划 ${data.planCode} 还有 ${remaining} 个未分配`)
+        }
+      }
+
+      // 2️⃣ 获取设备状态
       const device = await getDeviceById(deviceId)
 
-      // 2️⃣ 校验设备是否空闲
+      // 3️⃣ 校验设备是否空闲
       if (device.status !== '空闲') {
         return ElMessage.error(`设备当前状态为 ${device.status}，无法分配任务`)
       }
 
-      // 3️⃣ 校验设备类型与工序类型是否匹配
+      // 4️⃣ 校验设备类型与工序类型是否匹配
       const processToDeviceType = {
         '注塑': 'INJ',
         '印刷': 'PRT',
@@ -327,6 +352,145 @@ const submitTask = async (data) => {
   }
 }
 
+// 处理任务数量更新事件
+const handleTaskQuantityUpdate = async (event) => {
+  const { taskId, newQuantity, source } = event.detail
+  
+  console.log('任务管理页面接收到数量更新事件:', { taskId, newQuantity, source })
+  
+  try {
+    // 更新本地任务数据
+    const taskIndex = tasks.value.findIndex(t => t.id === taskId)
+    if (taskIndex !== -1) {
+      tasks.value[taskIndex].quantity = newQuantity
+      console.log('本地任务数据已更新:', tasks.value[taskIndex])
+      
+      // 检查是否需要状态更新
+      await checkTaskStatusAfterUpdate(tasks.value[taskIndex])
+    }
+    
+    // 如果需要，重新获取任务列表以确保数据一致性
+    if (source === 'injection-params') {
+      // 延迟一点时间再刷新，确保后端数据已更新
+      setTimeout(async () => {
+        await filterTasks()
+        console.log('任务列表已刷新')
+      }, 1000)
+    }
+    
+  } catch (error) {
+    console.error('处理任务数量更新失败:', error)
+  }
+}
+
+// 计算建议的状态
+const getSuggestedStatus = (task) => {
+  const { status, quantity, completedQuantity = 0 } = task
+  
+  if (completedQuantity >= quantity && quantity > 0) {
+    return '已完成'
+  }
+  
+  if (completedQuantity > 0 && completedQuantity < quantity && status !== '已暂停') {
+    return '进行中'
+  }
+  
+  if (completedQuantity === 0) {
+    return status === '已暂停' ? '已暂停' : '待下发'
+  }
+  
+  return status
+}
+
+// 获取状态更新原因
+const getStatusUpdateReason = (task, suggestedStatus) => {
+  const { quantity, completedQuantity = 0 } = task
+  
+  if (suggestedStatus === '已完成') {
+    return `完成数量 ${completedQuantity} 已达到任务数量 ${quantity}`
+  }
+  
+  if (suggestedStatus === '进行中') {
+    return `已有生产进度 ${completedQuantity}/${quantity}`
+  }
+  
+  if (suggestedStatus === '待下发') {
+    return '尚未开始生产'
+  }
+  
+  return '基于当前进度的建议'
+}
+
+// 处理状态建议
+const handleStatusSuggestion = async (task) => {
+  const suggestedStatus = getSuggestedStatus(task)
+  const reason = getStatusUpdateReason(task, suggestedStatus)
+  
+  try {
+    const result = await ElMessageBox.confirm(
+      `建议将任务 ${task.taskCode} 的状态从 "${task.status}" 更新为 "${suggestedStatus}"？\n\n` +
+      `原因：${reason}`,
+      '状态更新建议',
+      {
+        confirmButtonText: '更新状态',
+        cancelButtonText: '保持现状',
+        type: 'info'
+      }
+    )
+    
+    if (result) {
+      await updateTaskStatus(task.id, suggestedStatus, 'user-accepted-suggestion')
+      await filterTasks() // 刷新任务列表
+      ElMessage.success('任务状态更新成功')
+      
+      // 发送状态更新事件
+      window.dispatchEvent(new CustomEvent('task-status-updated', {
+        detail: { 
+          taskId: task.id, 
+          newStatus: suggestedStatus, 
+          oldStatus: task.status,
+          timestamp: Date.now(),
+          source: 'task-manager'
+        }
+      }))
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('状态更新失败:', error)
+      ElMessage.error('状态更新失败: ' + error.message)
+    }
+  }
+}
+
+// 数量更新后检查状态
+const checkTaskStatusAfterUpdate = async (task) => {
+  const suggestedStatus = getSuggestedStatus(task)
+  
+  // 自动更新的条件：完成数量达到100%时自动设为已完成
+  if (suggestedStatus === '已完成' && task.completedQuantity >= task.quantity) {
+    try {
+      await updateTaskStatus(task.id, suggestedStatus, 'auto-update-on-completion')
+      ElMessage.success(`任务 ${task.taskCode} 已自动设为已完成状态`)
+      
+      // 发送状态更新事件
+      window.dispatchEvent(new CustomEvent('task-status-updated', {
+        detail: { 
+          taskId: task.id, 
+          newStatus: suggestedStatus, 
+          oldStatus: task.status,
+          timestamp: Date.now(),
+          source: 'auto-update'
+        }
+      }))
+      
+      // 刷新任务列表
+      setTimeout(() => filterTasks(), 500)
+    } catch (error) {
+      console.error('自动状态更新失败:', error)
+    }
+  }
+}
+
 
 onMounted(async () => {
   try {
@@ -336,6 +500,9 @@ onMounted(async () => {
     
     // 启动自动刷新
     appStore.startAutoRefresh(30000) // 30秒刷新一次
+    
+    // 监听任务数量更新事件
+    window.addEventListener('task-quantity-updated', handleTaskQuantityUpdate)
   } catch (err) {
     console.error('初始化失败:', err)
     ElMessage.error(`初始化失败: ${err.message}`)
@@ -345,6 +512,9 @@ onMounted(async () => {
 onUnmounted(() => {
   // 停止自动刷新
   appStore.stopAutoRefresh()
+  
+  // 移除事件监听
+  window.removeEventListener('task-quantity-updated', handleTaskQuantityUpdate)
 })
 </script>
 <style scoped>

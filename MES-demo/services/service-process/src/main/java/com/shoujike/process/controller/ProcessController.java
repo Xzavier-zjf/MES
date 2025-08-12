@@ -34,7 +34,7 @@ public class ProcessController {
 
     @Autowired
     public ProcessController(InjectionParamService injectionParamService,
-                             PrintPatternService printPatternService) {
+            PrintPatternService printPatternService) {
         this.injectionParamService = injectionParamService;
         this.printPatternService = printPatternService;
     }
@@ -64,32 +64,74 @@ public class ProcessController {
     }
 
     @PutMapping("/injection-params/{id}")
-    public ResponseEntity<InjectionParamDTO> updateInjectionParam(
+    public ResponseEntity<?> updateInjectionParam(
             @PathVariable Integer id,
-            @Valid @RequestBody InjectionParamCreateDTO updateDTO) throws EntityNotFoundException {
-        return ResponseEntity.ok(injectionParamService.updateInjectionParam(id, updateDTO));
+            @Valid @RequestBody InjectionParamCreateDTO updateDTO) {
+        try {
+            InjectionParamDTO result = injectionParamService.updateInjectionParam(id, updateDTO);
+            return ResponseEntity.ok(result);
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", ex.getMessage() != null ? ex.getMessage() : "资源不存在"));
+        } catch (BusinessException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", ex.getMessage() != null ? ex.getMessage() : "业务异常"));
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "服务器内部错误"));
+        }
     }
 
     @GetMapping("/injection-params/{id}")
-    public ResponseEntity<InjectionParamDTO> getInjectionParamById(@PathVariable Integer id) throws EntityNotFoundException {
-        return ResponseEntity.ok(injectionParamService.getInjectionParamById(id));
+    public ResponseEntity<?> getInjectionParamById(@PathVariable Integer id) {
+        try {
+            InjectionParamDTO result = injectionParamService.getInjectionParamById(id);
+            return ResponseEntity.ok(result);
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", ex.getMessage() != null ? ex.getMessage() : "资源不存在"));
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "服务器内部错误"));
+        }
     }
 
     @GetMapping("/injection-params/task/{taskId}")
-    public ResponseEntity<InjectionParamDTO> getInjectionParamByTaskId(@PathVariable String taskId) throws EntityNotFoundException {
-        return ResponseEntity.ok(injectionParamService.getInjectionParamByTaskId(taskId));
+    public ResponseEntity<?> getInjectionParamByTaskId(@PathVariable String taskId) {
+        try {
+            InjectionParamDTO result = injectionParamService.getInjectionParamByTaskId(taskId);
+            return ResponseEntity.ok(result);
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", ex.getMessage() != null ? ex.getMessage() : "资源不存在"));
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "服务器内部错误"));
+        }
     }
 
     @DeleteMapping("/injection-params/{id}")
-    public ResponseEntity<Void> deleteInjectionParam(@PathVariable Integer id) throws EntityNotFoundException {
-        injectionParamService.deleteInjectionParam(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<?> deleteInjectionParam(@PathVariable Integer id) {
+        try {
+            injectionParamService.deleteInjectionParam(id);
+            return ResponseEntity.noContent().build();
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", ex.getMessage() != null ? ex.getMessage() : "资源不存在"));
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "服务器内部错误"));
+        }
     }
 
     // ================ 印刷图案管理 ================
     @PostMapping("/print-patterns")
     public ResponseEntity<?> createPrintPattern(
-            @Valid  @RequestBody PrintPatternCreateDTO createDTO) {  // 修改参数名称匹配前端
+            @Valid @RequestBody PrintPatternCreateDTO createDTO) { // 修改参数名称匹配前端
 
         try {
 
@@ -99,45 +141,77 @@ public class ProcessController {
         } catch (BusinessException e) {
             return ResponseEntity.badRequest().body(Map.of(
                     "message", e.getMessage(),
-                    "timestamp", System.currentTimeMillis()
-            ));
+                    "timestamp", System.currentTimeMillis()));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of(
                     "message", "文件上传失败: " + e.getMessage(),
-                    "timestamp", System.currentTimeMillis()
-            ));
+                    "timestamp", System.currentTimeMillis()));
         }
     }
+
     @PutMapping("/print-patterns/{id}")
-    public ResponseEntity<PrintPatternDTO> updatePrintPattern(
+    public ResponseEntity<?> updatePrintPattern(
             @PathVariable Integer id,
             @Valid @ModelAttribute PrintPatternCreateDTO updateDTO,
-            @RequestPart(value = "imageFile", required = false) MultipartFile imageFile) throws BusinessException, EntityNotFoundException {
+            @RequestPart(value = "imageFile", required = false) MultipartFile imageFile) {
 
-        // 处理文件更新（可选）
-        if (imageFile != null && !imageFile.isEmpty()) {
-            String newImageUrl = printPatternService.storeImage(imageFile);
-            updateDTO.setImageUrl(newImageUrl);
-        } else {
-            // 当未上传新文件时，确保使用现有图片URL
-            PrintPatternDTO existing = printPatternService.getPrintPatternById(id);
-            if (existing.getImageUrl() == null) {
-                throw new BusinessException("无法更新：原记录未包含图片，必须上传新图片");
+        try {
+            // 处理文件更新（可选）
+            if (imageFile != null && !imageFile.isEmpty()) {
+                String newImageUrl = printPatternService.storeImage(imageFile);
+                updateDTO.setImageUrl(newImageUrl);
+            } else {
+                // 当未上传新文件时，确保使用现有图片URL
+                PrintPatternDTO existing = printPatternService.getPrintPatternById(id);
+                if (existing.getImageUrl() == null) {
+                    throw new BusinessException("无法更新：原记录未包含图片，必须上传新图片");
+                }
+                updateDTO.setImageUrl(existing.getImageUrl());
             }
-            updateDTO.setImageUrl(existing.getImageUrl());
-        }
 
-        return ResponseEntity.ok(printPatternService.updatePrintPattern(id, updateDTO));
+            PrintPatternDTO result = printPatternService.updatePrintPattern(id, updateDTO);
+            return ResponseEntity.ok(result);
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", ex.getMessage() != null ? ex.getMessage() : "资源不存在"));
+        } catch (BusinessException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", ex.getMessage() != null ? ex.getMessage() : "业务异常"));
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "服务器内部错误"));
+        }
     }
 
     @GetMapping("/print-patterns/{id}")
-    public ResponseEntity<PrintPatternDTO> getPrintPatternById(@PathVariable Integer id) throws EntityNotFoundException {
-        return ResponseEntity.ok(printPatternService.getPrintPatternById(id));
+    public ResponseEntity<?> getPrintPatternById(@PathVariable Integer id) {
+        try {
+            PrintPatternDTO result = printPatternService.getPrintPatternById(id);
+            return ResponseEntity.ok(result);
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", ex.getMessage() != null ? ex.getMessage() : "资源不存在"));
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "服务器内部错误"));
+        }
     }
 
     @GetMapping("/print-patterns/code/{patternCode}")
-    public ResponseEntity<PrintPatternDTO> getPrintPatternByCode(@PathVariable String patternCode) throws EntityNotFoundException {
-        return ResponseEntity.ok(printPatternService.getPrintPatternByCode(patternCode));
+    public ResponseEntity<?> getPrintPatternByCode(@PathVariable String patternCode) {
+        try {
+            PrintPatternDTO result = printPatternService.getPrintPatternByCode(patternCode);
+            return ResponseEntity.ok(result);
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", ex.getMessage() != null ? ex.getMessage() : "资源不存在"));
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "服务器内部错误"));
+        }
     }
 
     @GetMapping("/print-patterns")
@@ -158,8 +232,17 @@ public class ProcessController {
     }
 
     @DeleteMapping("/print-patterns/{id}")
-    public ResponseEntity<Void> deletePrintPattern(@PathVariable Integer id) throws EntityNotFoundException {
-        printPatternService.deletePrintPattern(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<?> deletePrintPattern(@PathVariable Integer id) {
+        try {
+            printPatternService.deletePrintPattern(id);
+            return ResponseEntity.noContent().build();
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", ex.getMessage() != null ? ex.getMessage() : "资源不存在"));
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "服务器内部错误"));
+        }
     }
 }
