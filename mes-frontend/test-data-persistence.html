@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据持久性测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-title {
+            color: #409eff;
+            border-bottom: 2px solid #409eff;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #409eff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #337ecc;
+        }
+        button.success {
+            background: #67c23a;
+        }
+        button.danger {
+            background: #f56c6c;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: #f0f9ff;
+            border: 1px solid #91d5ff;
+            color: #0050b3;
+        }
+        .status.error {
+            background: #fff2f0;
+            border: 1px solid #ffccc7;
+            color: #cf1322;
+        }
+        .status.warning {
+            background: #fffbe6;
+            border: 1px solid #ffe58f;
+            color: #d48806;
+        }
+        .data-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .data-panel {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+        }
+        .data-panel h4 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .data-content {
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .image-preview {
+            max-width: 150px;
+            max-height: 150px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .test-step {
+            background: #e6f7ff;
+            border-left: 4px solid #1890ff;
+            padding: 10px 15px;
+            margin: 10px 0;
+        }
+        .test-result {
+            background: #f6ffed;
+            border-left: 4px solid #52c41a;
+            padding: 10px 15px;
+            margin: 10px 0;
+        }
+        .test-result.fail {
+            background: #fff2f0;
+            border-left-color: #ff4d4f;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔄 图案数据持久性测试</h1>
+    
+    <div class="test-container">
+        <h2 class="test-title">测试目标</h2>
+        <p>验证图案编辑后数据是否真正保存到后端，以及页面刷新后数据是否正确显示。</p>
+        
+        <div class="test-step">
+            <strong>测试步骤：</strong>
+            <ol>
+                <li>获取现有图案数据（更新前）</li>
+                <li>更新图案的图片URL</li>
+                <li>立即验证更新结果</li>
+                <li>等待一段时间后再次验证（模拟页面刷新）</li>
+                <li>比较数据一致性</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2 class="test-title">自动化测试</h2>
+        <button onclick="runPersistenceTest()" class="success">运行持久性测试</button>
+        <button onclick="clearResults()" class="danger">清除结果</button>
+        
+        <div id="testStatus" class="status" style="display: none;"></div>
+        <div id="testResults"></div>
+    </div>
+
+    <div class="test-container">
+        <h2 class="test-title">数据对比</h2>
+        <div class="data-comparison">
+            <div class="data-panel">
+                <h4>更新前数据</h4>
+                <div id="beforeData" class="data-content">等待测试...</div>
+            </div>
+            <div class="data-panel">
+                <h4>更新后数据</h4>
+                <div id="afterData" class="data-content">等待测试...</div>
+            </div>
+        </div>
+        
+        <div class="data-comparison">
+            <div class="data-panel">
+                <h4>立即验证结果</h4>
+                <div id="immediateData" class="data-content">等待测试...</div>
+            </div>
+            <div class="data-panel">
+                <h4>延迟验证结果</h4>
+                <div id="delayedData" class="data-content">等待测试...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api/v1/process/print-patterns';
+        let testData = {
+            originalPattern: null,
+            updatedPattern: null,
+            immediateVerification: null,
+            delayedVerification: null
+        };
+
+        function showStatus(message, type = 'success') {
+            const statusDiv = document.getElementById('testStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+        }
+
+        function addResult(message, success = true) {
+            const resultsDiv = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${success ? '' : 'fail'}`;
+            resultDiv.innerHTML = `<strong>${success ? '✅' : '❌'}</strong> ${message}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '';
+            document.getElementById('testStatus').style.display = 'none';
+            document.getElementById('beforeData').textContent = '等待测试...';
+            document.getElementById('afterData').textContent = '等待测试...';
+            document.getElementById('immediateData').textContent = '等待测试...';
+            document.getElementById('delayedData').textContent = '等待测试...';
+            testData = {
+                originalPattern: null,
+                updatedPattern: null,
+                immediateVerification: null,
+                delayedVerification: null
+            };
+        }
+
+        async function fetchPatternList() {
+            const response = await fetch(`${API_BASE}/all?page=0&size=10&sort=id,desc`);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return await response.json();
+        }
+
+        async function fetchPatternById(id) {
+            const response = await fetch(`${API_BASE}/${id}`);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return await response.json();
+        }
+
+        async function updatePattern(id, data) {
+            const response = await fetch(`${API_BASE}/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            const responseText = await response.text();
+            if (responseText) {
+                try {
+                    return JSON.parse(responseText);
+                } catch (e) {
+                    return { success: true, rawResponse: responseText };
+                }
+            }
+            return { success: true };
+        }
+
+        async function runPersistenceTest() {
+            try {
+                showStatus('开始运行持久性测试...', 'success');
+                clearResults();
+
+                // 步骤1: 获取现有图案数据
+                addResult('步骤1: 获取现有图案数据...');
+                const patternList = await fetchPatternList();
+                
+                if (!patternList.content || patternList.content.length === 0) {
+                    throw new Error('没有找到可测试的图案数据');
+                }
+
+                const targetPattern = patternList.content[0];
+                testData.originalPattern = await fetchPatternById(targetPattern.id);
+                
+                document.getElementById('beforeData').textContent = JSON.stringify(testData.originalPattern, null, 2);
+                addResult(`获取到图案数据: ID=${testData.originalPattern.id}, 当前图片URL=${testData.originalPattern.imageUrl || '(无)'}`);
+
+                // 步骤2: 准备更新数据
+                addResult('步骤2: 准备更新数据...');
+                const newImageUrl = `https://picsum.photos/200/200?random=${Date.now()}`;
+                const updateData = {
+                    patternCode: testData.originalPattern.patternCode,
+                    patternName: testData.originalPattern.patternName,
+                    machineModel: testData.originalPattern.machineModel || 'A',
+                    defaultPrintSpeed: testData.originalPattern.defaultPrintSpeed || 100,
+                    defaultPressure: testData.originalPattern.defaultPressure || 50,
+                    planId: testData.originalPattern.planId || '',
+                    taskId: testData.originalPattern.taskId || '',
+                    deviceId: testData.originalPattern.deviceId || '',
+                    imageUrl: newImageUrl
+                };
+
+                addResult(`准备更新图片URL: ${testData.originalPattern.imageUrl || '(无)'} → ${newImageUrl}`);
+
+                // 步骤3: 执行更新
+                addResult('步骤3: 执行更新操作...');
+                testData.updatedPattern = await updatePattern(testData.originalPattern.id, updateData);
+                
+                document.getElementById('afterData').textContent = JSON.stringify(testData.updatedPattern, null, 2);
+                addResult('更新操作完成，后端响应已收到');
+
+                // 步骤4: 立即验证
+                addResult('步骤4: 立即验证更新结果...');
+                await new Promise(resolve => setTimeout(resolve, 500)); // 短暂等待
+                
+                testData.immediateVerification = await fetchPatternById(testData.originalPattern.id);
+                document.getElementById('immediateData').textContent = JSON.stringify(testData.immediateVerification, null, 2);
+                
+                const immediateImageUrl = testData.immediateVerification.imageUrl;
+                if (immediateImageUrl === newImageUrl) {
+                    addResult('✅ 立即验证成功: 图片URL已正确更新');
+                } else {
+                    addResult(`❌ 立即验证失败: 期望 ${newImageUrl}, 实际 ${immediateImageUrl}`, false);
+                }
+
+                // 步骤5: 延迟验证（模拟页面刷新）
+                addResult('步骤5: 延迟验证（模拟页面刷新）...');
+                showStatus('等待3秒后进行延迟验证...', 'warning');
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                testData.delayedVerification = await fetchPatternById(testData.originalPattern.id);
+                document.getElementById('delayedData').textContent = JSON.stringify(testData.delayedVerification, null, 2);
+                
+                const delayedImageUrl = testData.delayedVerification.imageUrl;
+                if (delayedImageUrl === newImageUrl) {
+                    addResult('✅ 延迟验证成功: 数据持久化正常');
+                } else {
+                    addResult(`❌ 延迟验证失败: 期望 ${newImageUrl}, 实际 ${delayedImageUrl}`, false);
+                }
+
+                // 步骤6: 数据一致性检查
+                addResult('步骤6: 数据一致性检查...');
+                if (immediateImageUrl === delayedImageUrl) {
+                    addResult('✅ 数据一致性检查通过: 立即验证和延迟验证结果一致');
+                } else {
+                    addResult(`❌ 数据一致性检查失败: 立即验证(${immediateImageUrl}) ≠ 延迟验证(${delayedImageUrl})`, false);
+                }
+
+                // 最终结果
+                const allTestsPassed = 
+                    immediateImageUrl === newImageUrl && 
+                    delayedImageUrl === newImageUrl && 
+                    immediateImageUrl === delayedImageUrl;
+
+                if (allTestsPassed) {
+                    showStatus('🎉 所有测试通过！数据持久性正常', 'success');
+                    addResult('🎉 测试结论: 图案更新功能工作正常，数据能够正确持久化');
+                } else {
+                    showStatus('⚠️ 部分测试失败，存在数据持久性问题', 'error');
+                    addResult('⚠️ 测试结论: 图案更新功能存在问题，需要进一步调试', false);
+                }
+
+            } catch (error) {
+                showStatus(`测试失败: ${error.message}`, 'error');
+                addResult(`测试过程中发生错误: ${error.message}`, false);
+                console.error('持久性测试失败:', error);
+            }
+        }
+
+        // 页面加载完成后的初始化
+        window.addEventListener('load', function() {
+            console.log('数据持久性测试页面已加载');
+        });
+    </script>
+</body>
+</html>

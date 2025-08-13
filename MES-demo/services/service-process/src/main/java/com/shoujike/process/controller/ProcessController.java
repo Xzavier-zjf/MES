@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -149,8 +150,9 @@ public class ProcessController {
         }
     }
 
-    @PutMapping("/print-patterns/{id}")
-    public ResponseEntity<?> updatePrintPattern(
+    // 处理multipart/form-data格式的更新请求（带文件上传）
+    @PutMapping(value = "/print-patterns/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> updatePrintPatternWithFile(
             @PathVariable Integer id,
             @Valid @ModelAttribute PrintPatternCreateDTO updateDTO,
             @RequestPart(value = "imageFile", required = false) MultipartFile imageFile) {
@@ -181,6 +183,38 @@ public class ProcessController {
             ex.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("message", "服务器内部错误"));
+        }
+    }
+
+    // 处理application/json格式的更新请求（不带文件上传）
+    @PutMapping(value = "/print-patterns/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> updatePrintPattern(
+            @PathVariable Integer id,
+            @Valid @RequestBody PrintPatternCreateDTO updateDTO) {
+
+        try {
+            System.out.println("收到JSON格式的更新请求，ID: " + id);
+            System.out.println("更新数据: " + updateDTO);
+            
+            // 对于JSON请求，直接使用传递的imageUrl，不做额外处理
+            // 这样前端可以通过imageUrl字段更新图片链接
+            
+            PrintPatternDTO result = printPatternService.updatePrintPattern(id, updateDTO);
+            System.out.println("更新结果: " + result);
+            
+            return ResponseEntity.ok(result);
+        } catch (EntityNotFoundException ex) {
+            System.err.println("实体未找到: " + ex.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", ex.getMessage() != null ? ex.getMessage() : "资源不存在"));
+        } catch (BusinessException ex) {
+            System.err.println("业务异常: " + ex.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", ex.getMessage() != null ? ex.getMessage() : "业务异常"));
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "服务器内部错误: " + ex.getMessage()));
         }
     }
 

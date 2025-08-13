@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图案图片更换功能测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-title {
+            color: #409eff;
+            border-bottom: 2px solid #409eff;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background: #409eff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #337ecc;
+        }
+        button.danger {
+            background: #f56c6c;
+        }
+        button.danger:hover {
+            background: #dd6161;
+        }
+        .preview-container {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 10px;
+            background: #fafafa;
+        }
+        .preview-image {
+            max-width: 200px;
+            max-height: 200px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .error {
+            color: #f56c6c;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        .success {
+            color: #67c23a;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        .info {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 15px;
+            color: #0050b3;
+        }
+        .test-results {
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .upload-type-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .upload-type-selector label {
+            display: flex;
+            align-items: center;
+            font-weight: normal;
+            cursor: pointer;
+        }
+        .upload-type-selector input[type="radio"] {
+            width: auto;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 印刷图案管理 - 图片更换功能测试</h1>
+    
+    <div class="info">
+        <strong>测试目标：</strong>验证在编辑图案时，重新选择图片URL作为更换图案的方式，填入正确的图片URL后，页面是否正确更换图案。
+    </div>
+
+    <!-- 测试用图案数据 -->
+    <div class="test-container">
+        <h2 class="test-title">1. 模拟现有图案数据</h2>
+        <div class="form-group">
+            <label>图案编号：</label>
+            <input type="text" id="patternCode" value="PATTERN-001" readonly>
+        </div>
+        <div class="form-group">
+            <label>图案名称：</label>
+            <input type="text" id="patternName" value="测试图案" readonly>
+        </div>
+        <div class="form-group">
+            <label>当前图片URL：</label>
+            <input type="text" id="currentImageUrl" value="https://picsum.photos/200/200?random=1" readonly>
+        </div>
+        <div class="form-group">
+            <label>当前图片预览：</label>
+            <div class="preview-container">
+                <img id="currentPreview" class="preview-image" src="https://picsum.photos/200/200?random=1" alt="当前图案">
+            </div>
+        </div>
+    </div>
+
+    <!-- 图片更换测试 -->
+    <div class="test-container">
+        <h2 class="test-title">2. 图片更换功能测试</h2>
+        
+        <div class="upload-type-selector">
+            <label>
+                <input type="radio" name="uploadType" value="url" checked>
+                图片URL
+            </label>
+            <label>
+                <input type="radio" name="uploadType" value="path">
+                文件路径
+            </label>
+            <label>
+                <input type="radio" name="uploadType" value="file">
+                文件上传
+            </label>
+        </div>
+
+        <!-- URL输入方式 -->
+        <div id="urlSection" class="form-group">
+            <label>新图片URL：</label>
+            <input type="text" id="newImageUrl" placeholder="请输入新的图片URL">
+            <button onclick="validateUrl()">验证URL</button>
+            <button onclick="previewUrl()">预览图片</button>
+            <div id="urlValidation"></div>
+        </div>
+
+        <!-- 路径选择方式 -->
+        <div id="pathSection" class="form-group" style="display: none;">
+            <label>选择图片路径：</label>
+            <select id="imagePath">
+                <option value="">请选择现有图片路径</option>
+                <option value="/uploads/patterns/test-pattern-1.jpg">测试图案1</option>
+                <option value="/uploads/patterns/test-pattern-2.png">测试图案2</option>
+                <option value="/uploads/patterns/geometric-pattern.jpg">几何图案</option>
+                <option value="/uploads/patterns/marble-texture.jpg">大理石纹理</option>
+            </select>
+            <button onclick="previewPath()">预览图片</button>
+        </div>
+
+        <!-- 文件上传方式 -->
+        <div id="fileSection" class="form-group" style="display: none;">
+            <label>选择图片文件：</label>
+            <input type="file" id="imageFile" accept="image/*">
+            <button onclick="uploadFile()">上传文件</button>
+            <div id="uploadProgress"></div>
+        </div>
+
+        <!-- 新图片预览 -->
+        <div class="form-group">
+            <label>新图片预览：</label>
+            <div class="preview-container">
+                <img id="newPreview" class="preview-image" style="display: none;" alt="新图案预览">
+                <div id="previewPlaceholder">暂无预览</div>
+            </div>
+        </div>
+
+        <button onclick="updatePattern()">更新图案</button>
+        <button onclick="resetTest()" class="danger">重置测试</button>
+    </div>
+
+    <!-- 测试用例 -->
+    <div class="test-container">
+        <h2 class="test-title">3. 预设测试用例</h2>
+        <p>点击以下按钮快速测试不同的图片URL：</p>
+        
+        <button onclick="testUrl('https://picsum.photos/200/200?random=2')">测试URL 1</button>
+        <button onclick="testUrl('https://picsum.photos/200/200?random=3')">测试URL 2</button>
+        <button onclick="testUrl('https://picsum.photos/200/200?random=4')">测试URL 3</button>
+        <button onclick="testUrl('https://via.placeholder.com/200x200/ff6b6b/ffffff?text=Pattern')">测试占位图</button>
+        <button onclick="testUrl('invalid-url')" class="danger">测试无效URL</button>
+        <button onclick="runAutomatedTests()" style="background: #67c23a;">运行自动化测试</button>
+    </div>
+
+    <!-- 测试结果 -->
+    <div class="test-results">
+        <h3>测试结果：</h3>
+        <div id="testResults">等待测试...</div>
+    </div>
+
+    <script src="test-pattern-image-replacement.js"></script>
+    <script>
+        let currentTest = {
+            originalUrl: 'https://picsum.photos/200/200?random=1',
+            newUrl: '',
+            uploadType: 'url'
+        };
+
+        // 上传方式切换
+        document.querySelectorAll('input[name="uploadType"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                currentTest.uploadType = this.value;
+                switchUploadType(this.value);
+            });
+        });
+
+        function switchUploadType(type) {
+            document.getElementById('urlSection').style.display = type === 'url' ? 'block' : 'none';
+            document.getElementById('pathSection').style.display = type === 'path' ? 'block' : 'none';
+            document.getElementById('fileSection').style.display = type === 'file' ? 'block' : 'none';
+            
+            // 清除预览
+            clearPreview();
+        }
+
+        function clearPreview() {
+            const newPreview = document.getElementById('newPreview');
+            const placeholder = document.getElementById('previewPlaceholder');
+            newPreview.style.display = 'none';
+            placeholder.textContent = '暂无预览';
+            placeholder.style.display = 'block';
+        }
+
+        function showPreview(url) {
+            const newPreview = document.getElementById('newPreview');
+            const placeholder = document.getElementById('previewPlaceholder');
+            
+            newPreview.src = url;
+            newPreview.style.display = 'block';
+            placeholder.style.display = 'none';
+            
+            // 处理图片加载错误
+            newPreview.onerror = function() {
+                newPreview.style.display = 'none';
+                placeholder.textContent = '图片加载失败';
+                placeholder.style.display = 'block';
+                logResult('❌ 图片加载失败: ' + url, 'error');
+            };
+            
+            newPreview.onload = function() {
+                logResult('✅ 图片预览成功: ' + url, 'success');
+            };
+        }
+
+        async function validateUrl() {
+            const url = document.getElementById('newImageUrl').value.trim();
+            const validation = document.getElementById('urlValidation');
+            
+            if (!url) {
+                validation.innerHTML = '<div class="error">请输入图片URL</div>';
+                return false;
+            }
+            
+            // 基本URL格式验证
+            try {
+                new URL(url);
+            } catch (e) {
+                validation.innerHTML = '<div class="error">URL格式无效</div>';
+                return false;
+            }
+            
+            // 检查是否是图片URL
+            const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+            const isImageUrl = imageExtensions.some(ext => 
+                url.toLowerCase().includes(ext) || 
+                url.includes('picsum.photos') || 
+                url.includes('placeholder.com')
+            );
+            
+            if (!isImageUrl) {
+                validation.innerHTML = '<div class="error">URL可能不是图片链接</div>';
+            } else {
+                validation.innerHTML = '<div class="success">URL格式正确</div>';
+            }
+            
+            // 尝试验证URL可访问性
+            try {
+                const response = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
+                validation.innerHTML += '<div class="success">URL可访问</div>';
+                return true;
+            } catch (error) {
+                validation.innerHTML += '<div class="error">URL可访问性验证失败（可能是CORS限制）</div>';
+                return true; // 即使CORS失败，也允许继续测试
+            }
+        }
+
+        function previewUrl() {
+            const url = document.getElementById('newImageUrl').value.trim();
+            if (!url) {
+                alert('请先输入图片URL');
+                return;
+            }
+            
+            currentTest.newUrl = url;
+            showPreview(url);
+            logResult('🔍 预览URL: ' + url, 'info');
+        }
+
+        function previewPath() {
+            const path = document.getElementById('imagePath').value;
+            if (!path) {
+                alert('请先选择图片路径');
+                return;
+            }
+            
+            // 模拟服务器路径转换为完整URL
+            const fullUrl = `http://localhost:8080/api${path}`;
+            currentTest.newUrl = fullUrl;
+            showPreview(fullUrl);
+            logResult('🔍 预览路径: ' + path + ' -> ' + fullUrl, 'info');
+        }
+
+        function uploadFile() {
+            const fileInput = document.getElementById('imageFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('请先选择文件');
+                return;
+            }
+            
+            if (!file.type.startsWith('image/')) {
+                alert('请选择图片文件');
+                return;
+            }
+            
+            const progress = document.getElementById('uploadProgress');
+            progress.innerHTML = '<div class="info">正在上传...</div>';
+            
+            // 模拟文件上传
+            setTimeout(() => {
+                const fileName = `uploaded_${Date.now()}_${file.name}`;
+                const uploadedUrl = `/uploads/patterns/${fileName}`;
+                const fullUrl = `http://localhost:8080/api${uploadedUrl}`;
+                
+                currentTest.newUrl = fullUrl;
+                
+                // 使用FileReader创建本地预览
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    showPreview(e.target.result);
+                };
+                reader.readAsDataURL(file);
+                
+                progress.innerHTML = '<div class="success">上传成功: ' + fileName + '</div>';
+                logResult('📁 文件上传成功: ' + fileName, 'success');
+            }, 1500);
+        }
+
+        function testUrl(url) {
+            document.getElementById('newImageUrl').value = url;
+            currentTest.newUrl = url;
+            showPreview(url);
+            logResult('🧪 测试URL: ' + url, 'info');
+        }
+
+        function updatePattern() {
+            if (!currentTest.newUrl) {
+                alert('请先选择或输入新的图片');
+                return;
+            }
+            
+            // 模拟更新图案
+            logResult('🔄 开始更新图案...', 'info');
+            
+            setTimeout(() => {
+                // 更新当前图片
+                document.getElementById('currentImageUrl').value = currentTest.newUrl;
+                document.getElementById('currentPreview').src = currentTest.newUrl;
+                
+                // 清除新图片预览
+                clearPreview();
+                
+                // 清除输入
+                document.getElementById('newImageUrl').value = '';
+                document.getElementById('imagePath').value = '';
+                document.getElementById('imageFile').value = '';
+                document.getElementById('urlValidation').innerHTML = '';
+                document.getElementById('uploadProgress').innerHTML = '';
+                
+                logResult('✅ 图案更新成功！新图片URL: ' + currentTest.newUrl, 'success');
+                
+                // 重置测试状态
+                currentTest.originalUrl = currentTest.newUrl;
+                currentTest.newUrl = '';
+                
+            }, 1000);
+        }
+
+        function resetTest() {
+            // 重置为初始状态
+            const initialUrl = 'https://picsum.photos/200/200?random=1';
+            document.getElementById('currentImageUrl').value = initialUrl;
+            document.getElementById('currentPreview').src = initialUrl;
+            
+            // 清除所有输入
+            document.getElementById('newImageUrl').value = '';
+            document.getElementById('imagePath').value = '';
+            document.getElementById('imageFile').value = '';
+            document.getElementById('urlValidation').innerHTML = '';
+            document.getElementById('uploadProgress').innerHTML = '';
+            
+            // 清除预览
+            clearPreview();
+            
+            // 重置上传方式为URL
+            document.querySelector('input[name="uploadType"][value="url"]').checked = true;
+            switchUploadType('url');
+            
+            // 重置测试状态
+            currentTest = {
+                originalUrl: initialUrl,
+                newUrl: '',
+                uploadType: 'url'
+            };
+            
+            logResult('🔄 测试已重置', 'info');
+        }
+
+        function logResult(message, type = 'info') {
+            const results = document.getElementById('testResults');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            
+            results.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            results.scrollTop = results.scrollHeight;
+        }
+
+        // 运行自动化测试
+        async function runAutomatedTests() {
+            logResult('🤖 开始运行自动化测试...', 'info');
+            
+            try {
+                const results = await window.runPatternImageTests();
+                
+                logResult(`📊 自动化测试完成: ${results.passed}/${results.total} 通过`, 
+                         results.failed === 0 ? 'success' : 'error');
+                
+                // 显示详细结果
+                results.results.forEach(result => {
+                    const status = result.success ? '✅' : '❌';
+                    logResult(`${status} ${result.testName}: ${result.message}`, 
+                             result.success ? 'success' : 'error');
+                });
+                
+            } catch (error) {
+                logResult('❌ 自动化测试运行失败: ' + error.message, 'error');
+            }
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            logResult('🚀 图案图片更换功能测试页面已加载', 'success');
+            logResult('📋 测试步骤：1. 选择上传方式 2. 输入/选择新图片 3. 预览图片 4. 更新图案', 'info');
+            logResult('🤖 点击"运行自动化测试"按钮可执行完整的功能测试', 'info');
+        });
+    </script>
+</body>
+</html>

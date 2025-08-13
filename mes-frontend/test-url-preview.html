@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片URL预览测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .url-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+        .preview-area {
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px solid #e4e7ed;
+            border-radius: 6px;
+            background: #fafafa;
+            min-height: 200px;
+        }
+        .preview-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .error-message {
+            color: #ff4d4f;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .success-message {
+            color: #52c41a;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .test-urls {
+            background: #f0f9ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+        .test-urls h4 {
+            margin-top: 0;
+            color: #1890ff;
+        }
+        .url-link {
+            display: block;
+            color: #1890ff;
+            text-decoration: none;
+            padding: 5px 0;
+            cursor: pointer;
+        }
+        .url-link:hover {
+            text-decoration: underline;
+        }
+        .button {
+            background: #409eff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #66b1ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-section">
+        <h1>🖼️ 图片URL预览功能测试</h1>
+        <p>测试图案管理页面中的图片URL预览功能</p>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 URL输入测试</h2>
+        <label for="urlInput">请输入图片URL：</label>
+        <input 
+            type="url" 
+            id="urlInput" 
+            class="url-input" 
+            placeholder="请输入图片URL，如: https://example.com/image.jpg"
+            oninput="handleUrlInput()"
+        />
+        
+        <div class="test-urls">
+            <h4>🧪 测试用图片URL（点击快速填入）：</h4>
+            <a class="url-link" onclick="setTestUrl('https://picsum.photos/300/200?random=1')">
+                https://picsum.photos/300/200?random=1 (随机图片1)
+            </a>
+            <a class="url-link" onclick="setTestUrl('https://picsum.photos/300/200?random=2')">
+                https://picsum.photos/300/200?random=2 (随机图片2)
+            </a>
+            <a class="url-link" onclick="setTestUrl('https://via.placeholder.com/300x200/409EFF/FFFFFF?text=Test+Image')">
+                https://via.placeholder.com/300x200/409EFF/FFFFFF?text=Test+Image (占位图)
+            </a>
+            <a class="url-link" onclick="setTestUrl('https://httpbin.org/image/jpeg')">
+                https://httpbin.org/image/jpeg (JPEG测试图)
+            </a>
+            <a class="url-link" onclick="setTestUrl('https://invalid-url-test.com/nonexistent.jpg')">
+                https://invalid-url-test.com/nonexistent.jpg (无效URL测试)
+            </a>
+        </div>
+        
+        <button class="button" onclick="clearPreview()">清除预览</button>
+        <button class="button" onclick="testPatternManager()">在图案管理中测试</button>
+    </div>
+
+    <div class="test-section">
+        <h2>👁️ 预览区域</h2>
+        <div id="previewArea" class="preview-area">
+            <div id="previewContent">
+                <p style="text-align: center; color: #999; margin-top: 80px;">
+                    请输入图片URL查看预览效果
+                </p>
+            </div>
+        </div>
+        <div id="statusMessage"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔧 调试信息</h2>
+        <div id="debugInfo" style="background: #f5f5f5; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 12px;">
+            等待输入URL...
+        </div>
+    </div>
+
+    <script>
+        let currentUrl = '';
+        let previewTimeout = null;
+
+        function handleUrlInput() {
+            const input = document.getElementById('urlInput');
+            const url = input.value.trim();
+            
+            // 清除之前的定时器
+            if (previewTimeout) {
+                clearTimeout(previewTimeout);
+            }
+            
+            // 更新调试信息
+            updateDebugInfo('URL输入', { url, length: url.length });
+            
+            if (!url) {
+                clearPreview();
+                return;
+            }
+            
+            // 延迟预览，避免频繁更新
+            previewTimeout = setTimeout(() => {
+                previewImage(url);
+            }, 500);
+        }
+
+        function previewImage(url) {
+            currentUrl = url;
+            const previewContent = document.getElementById('previewContent');
+            const statusMessage = document.getElementById('statusMessage');
+            
+            // 显示加载状态
+            previewContent.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <div style="font-size: 24px; margin-bottom: 10px;">⏳</div>
+                    <div>正在加载图片...</div>
+                </div>
+            `;
+            statusMessage.innerHTML = '';
+            
+            updateDebugInfo('开始预览', { url });
+            
+            // 创建图片元素进行预加载
+            const img = new Image();
+            
+            img.onload = function() {
+                previewContent.innerHTML = `
+                    <div style="text-align: center;">
+                        <img src="${url}" class="preview-image" alt="预览图片" />
+                        <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                            尺寸: ${this.naturalWidth} × ${this.naturalHeight}
+                        </div>
+                    </div>
+                `;
+                statusMessage.innerHTML = '<div class="success-message">✅ 图片加载成功</div>';
+                updateDebugInfo('加载成功', { 
+                    url, 
+                    width: this.naturalWidth, 
+                    height: this.naturalHeight,
+                    size: `${this.naturalWidth} × ${this.naturalHeight}`
+                });
+            };
+            
+            img.onerror = function() {
+                previewContent.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <div style="font-size: 24px; margin-bottom: 10px; color: #ff4d4f;">❌</div>
+                        <div style="color: #ff4d4f;">图片加载失败</div>
+                        <div style="font-size: 12px; color: #999; margin-top: 10px;">
+                            请检查URL是否正确或图片是否存在
+                        </div>
+                    </div>
+                `;
+                statusMessage.innerHTML = '<div class="error-message">❌ 图片加载失败，请检查URL是否正确</div>';
+                updateDebugInfo('加载失败', { url, error: '图片无法加载' });
+            };
+            
+            // 开始加载图片
+            img.src = url;
+        }
+
+        function setTestUrl(url) {
+            document.getElementById('urlInput').value = url;
+            handleUrlInput();
+        }
+
+        function clearPreview() {
+            document.getElementById('urlInput').value = '';
+            document.getElementById('previewContent').innerHTML = `
+                <p style="text-align: center; color: #999; margin-top: 80px;">
+                    请输入图片URL查看预览效果
+                </p>
+            `;
+            document.getElementById('statusMessage').innerHTML = '';
+            updateDebugInfo('清除预览', {});
+            currentUrl = '';
+        }
+
+        function updateDebugInfo(action, data) {
+            const debugInfo = document.getElementById('debugInfo');
+            const timestamp = new Date().toLocaleTimeString();
+            debugInfo.innerHTML = `
+                <strong>最后操作:</strong> ${action} (${timestamp})<br>
+                <strong>当前URL:</strong> ${currentUrl || '无'}<br>
+                <strong>URL长度:</strong> ${currentUrl.length}<br>
+                <strong>数据:</strong> ${JSON.stringify(data, null, 2)}
+            `;
+        }
+
+        function testPatternManager() {
+            if (currentUrl) {
+                // 将URL保存到localStorage，在图案管理页面中使用
+                localStorage.setItem('testImageUrl', currentUrl);
+                alert(`已保存测试URL到本地存储：${currentUrl}\n\n现在打开图案管理页面，在编辑对话框中选择"图片URL"方式，URL会自动填入。`);
+                window.open('/pattern', '_blank');
+            } else {
+                alert('请先输入一个有效的图片URL');
+            }
+        }
+
+        // 页面加载时检查是否有保存的测试URL
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedUrl = localStorage.getItem('testImageUrl');
+            if (savedUrl) {
+                document.getElementById('urlInput').value = savedUrl;
+                handleUrlInput();
+            }
+            
+            console.log('🖼️ 图片URL预览测试页面已加载');
+            updateDebugInfo('页面初始化', { savedUrl: savedUrl || '无' });
+        });
+    </script>
+</body>
+</html>

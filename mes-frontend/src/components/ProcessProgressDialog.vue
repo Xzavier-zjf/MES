@@ -1,11 +1,6 @@
 <template>
-  <el-dialog
-    :model-value="visible"
-    :title="`${plan?.planCode} - 工序进度详情`"
-    width="800px"
-    @update:model-value="$emit('update:visible', $event)"
-    @close="$emit('update:visible', false)"
-  >
+  <el-dialog :model-value="visible" :title="`${plan?.planCode} - 工序进度详情`" width="800px"
+    @update:model-value="$emit('update:visible', $event)" @close="$emit('update:visible', false)">
     <div v-if="plan && allocation" class="progress-content">
       <!-- 总体概览 -->
       <el-card class="overview-card" shadow="never">
@@ -38,18 +33,14 @@
           <span>各工序进度</span>
         </template>
         <div class="process-list">
-          <div 
-            v-for="processType in processFlow" 
-            :key="processType"
-            class="process-item"
-          >
+          <div v-for="processType in processFlow" :key="processType" class="process-item">
             <div class="process-header">
               <span class="process-name">{{ processType }}</span>
               <el-tag type="info" size="small">
                 待开发
               </el-tag>
             </div>
-            
+
             <div class="process-stats">
               <div class="stat-row">
                 <span>已分配: 0</span>
@@ -60,14 +51,11 @@
                 <span>完成率: 0%</span>
               </div>
             </div>
-            
+
             <!-- 工序进度条 -->
             <div class="process-progress">
               <div class="progress-bar">
-                <div 
-                  class="progress-fill"
-                  style="width: 0%; background: #e4e7ed;"
-                ></div>
+                <div class="progress-fill" style="width: 0%; background: #e4e7ed;"></div>
               </div>
             </div>
           </div>
@@ -108,12 +96,12 @@ const PROCESS_FLOW = ['注塑', '印刷', '组装', '质检', '包装']
 // 简化的计算函数
 function calculateDetailedAllocation(plan, tasks) {
   if (!plan || !tasks) return null
-  
+
   const relatedTasks = tasks.filter(task => task.planId === plan.id)
   const totalAllocated = relatedTasks.reduce((sum, task) => sum + (task.quantity || 0), 0)
   const totalCompleted = relatedTasks.filter(t => t.status === '已完成').reduce((sum, task) => sum + (task.quantity || 0), 0)
   const totalInProgress = relatedTasks.filter(t => t.status === '进行中').reduce((sum, task) => sum + (task.quantity || 0), 0)
-  
+
   return {
     totalQuantity: plan.totalQuantity,
     totalAllocated,
@@ -159,9 +147,9 @@ const allocation = computed(() => {
 
 const exportReport = () => {
   if (!props.plan) return
-  
+
   const report = `简化报告 - ${props.plan.planCode}\n总量: ${props.plan.totalQuantity}\n状态: ${props.plan.status}`
-  
+
   // 创建并下载文本文件
   const blob = new Blob([report], { type: 'text/plain;charset=utf-8' })
   const url = URL.createObjectURL(blob)
@@ -172,7 +160,7 @@ const exportReport = () => {
   link.click()
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
-  
+
   ElMessage.success('报告已导出')
 }
 </script>

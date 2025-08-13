@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MES服务状态检查</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .service-card {
+            border: 1px solid #d9d9d9;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            background: #fafafa;
+        }
+        .service-card.online {
+            border-color: #52c41a;
+            background: #f6ffed;
+        }
+        .service-card.offline {
+            border-color: #ff4d4f;
+            background: #fff2f0;
+        }
+        .service-card.checking {
+            border-color: #faad14;
+            background: #fffbe6;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-online { background: #52c41a; }
+        .status-offline { background: #ff4d4f; }
+        .status-checking { background: #faad14; }
+        .btn {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover { background: #40a9ff; }
+        .btn-success { background: #52c41a; }
+        .btn-success:hover { background: #73d13d; }
+        .btn-danger { background: #ff4d4f; }
+        .btn-danger:hover { background: #ff7875; }
+        .config-info {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+        .error-log {
+            background: #fff2f0;
+            border: 1px solid #ffccc7;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .test-results {
+            margin-top: 20px;
+        }
+        .test-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border-left: 4px solid #d9d9d9;
+        }
+        .test-item.success {
+            background: #f6ffed;
+            border-left-color: #52c41a;
+        }
+        .test-item.error {
+            background: #fff2f0;
+            border-left-color: #ff4d4f;
+        }
+        .test-item.warning {
+            background: #fffbe6;
+            border-left-color: #faad14;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 MES服务状态检查工具</h1>
+        
+        <div class="config-info">
+            <h3>📋 当前配置信息</h3>
+            <p><strong>前端服务:</strong> http://localhost:5173</p>
+            <p><strong>后端服务:</strong> http://localhost:8080 (实际运行端口)</p>
+            <p><strong>代理配置:</strong> /api/* → http://localhost:8080</p>
+            <p><strong>环境变量:</strong> VITE_API_BASE_URL = "" (使用相对路径)</p>
+        </div>
+
+        <div class="service-card checking" id="frontend-status">
+            <h3><span class="status-indicator status-checking"></span>前端服务 (Vite)</h3>
+            <p>地址: http://localhost:5173</p>
+            <p>状态: <span id="frontend-status-text">检查中...</span></p>
+            <button class="btn" onclick="checkFrontend()">重新检查</button>
+        </div>
+
+        <div class="service-card checking" id="backend-status">
+            <h3><span class="status-indicator status-checking"></span>后端服务 (Spring Boot)</h3>
+            <p>地址: http://localhost:8080</p>
+            <p>状态: <span id="backend-status-text">检查中...</span></p>
+            <button class="btn" onclick="checkBackend()">重新检查</button>
+        </div>
+
+        <div class="service-card checking" id="proxy-status">
+            <h3><span class="status-indicator status-checking"></span>代理服务 (Vite Proxy)</h3>
+            <p>路径: /api/* → http://localhost:8080</p>
+            <p>状态: <span id="proxy-status-text">检查中...</span></p>
+            <button class="btn" onclick="checkProxy()">测试代理</button>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <button class="btn btn-success" onclick="runFullCheck()">🔄 完整检查</button>
+            <button class="btn" onclick="testLogin()">🔐 测试登录</button>
+            <button class="btn btn-danger" onclick="clearLogs()">🗑️ 清除日志</button>
+        </div>
+
+        <div class="test-results" id="test-results">
+            <h3>📊 检查结果</h3>
+            <div id="results-container"></div>
+        </div>
+
+        <div class="error-log" id="error-log" style="display: none;">
+            <h3>📝 错误日志</h3>
+            <pre id="log-content"></pre>
+        </div>
+    </div>
+
+    <script>
+        let logs = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            logs.push(`[${timestamp}] ${type.toUpperCase()}: ${message}`);
+            updateLogDisplay();
+            console.log(`[${type}]`, message);
+        }
+
+        function updateLogDisplay() {
+            const logElement = document.getElementById('log-content');
+            const errorLogDiv = document.getElementById('error-log');
+            
+            if (logs.length > 0) {
+                logElement.textContent = logs.join('\n');
+                errorLogDiv.style.display = 'block';
+            }
+        }
+
+        function clearLogs() {
+            logs = [];
+            document.getElementById('error-log').style.display = 'none';
+            document.getElementById('results-container').innerHTML = '';
+        }
+
+        function addResult(message, type = 'success') {
+            const container = document.getElementById('results-container');
+            const item = document.createElement('div');
+            item.className = `test-item ${type}`;
+            item.innerHTML = `
+                <strong>${type === 'success' ? '✅' : type === 'error' ? '❌' : '⚠️'}</strong>
+                ${message}
+            `;
+            container.appendChild(item);
+        }
+
+        function updateServiceStatus(serviceId, status, message) {
+            const card = document.getElementById(`${serviceId}-status`);
+            const indicator = card.querySelector('.status-indicator');
+            const statusText = document.getElementById(`${serviceId}-status-text`);
+            
+            card.className = `service-card ${status}`;
+            indicator.className = `status-indicator status-${status}`;
+            statusText.textContent = message;
+        }
+
+        async function checkFrontend() {
+            log('检查前端服务状态...');
+            try {
+                const response = await fetch('/', { method: 'HEAD' });
+                if (response.ok) {
+                    updateServiceStatus('frontend', 'online', '运行正常');
+                    addResult('前端服务运行正常', 'success');
+                    log('前端服务检查通过');
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                updateServiceStatus('frontend', 'offline', `连接失败: ${error.message}`);
+                addResult(`前端服务异常: ${error.message}`, 'error');
+                log(`前端服务检查失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkBackend() {
+            log('检查后端服务状态...');
+            try {
+                // 直接访问后端服务
+                const response = await fetch('http://localhost:8080/api/auth/current-user', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.status === 401 || response.status === 200) {
+                    // 401表示服务正常但未登录，200表示已登录
+                    updateServiceStatus('backend', 'online', '运行正常');
+                    addResult('后端服务运行正常', 'success');
+                    log('后端服务检查通过');
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                updateServiceStatus('backend', 'offline', `连接失败: ${error.message}`);
+                addResult(`后端服务异常: ${error.message}`, 'error');
+                log(`后端服务检查失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkProxy() {
+            log('检查代理服务状态...');
+            try {
+                // 通过代理访问后端
+                const response = await fetch('/api/auth/current-user', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.status === 401 || response.status === 200) {
+                    updateServiceStatus('proxy', 'online', '代理工作正常');
+                    addResult('Vite代理配置正确，可以正常转发请求', 'success');
+                    log('代理服务检查通过');
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                updateServiceStatus('proxy', 'offline', `代理失败: ${error.message}`);
+                addResult(`代理服务异常: ${error.message}`, 'error');
+                log(`代理服务检查失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLogin() {
+            log('测试登录功能...');
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        username: 'admin',
+                        password: '123456'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    addResult(`登录测试成功: ${data.message}`, 'success');
+                    log(`登录测试成功: ${JSON.stringify(data)}`);
+                } else {
+                    addResult(`登录测试失败: ${data.message || '未知错误'}`, 'warning');
+                    log(`登录测试失败: ${JSON.stringify(data)}`, 'warning');
+                }
+            } catch (error) {
+                addResult(`登录测试异常: ${error.message}`, 'error');
+                log(`登录测试异常: ${error.message}`, 'error');
+            }
+        }
+
+        async function runFullCheck() {
+            clearLogs();
+            log('开始完整服务检查...');
+            
+            addResult('开始完整服务状态检查...', 'success');
+            
+            await checkFrontend();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await checkBackend();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await checkProxy();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            log('完整服务检查完成');
+            addResult('服务状态检查完成', 'success');
+        }
+
+        // 页面加载时自动运行检查
+        window.onload = function() {
+            log('页面加载完成，开始自动检查...');
+            setTimeout(runFullCheck, 1000);
+        };
+    </script>
+</body>
+</html>

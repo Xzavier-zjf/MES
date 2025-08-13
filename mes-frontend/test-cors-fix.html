@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS问题修复测试</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .error-info {
+            background: #fff2f0;
+            border: 1px solid #ffccc7;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .solution {
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .btn {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #40a9ff;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+            color: #52c41a;
+        }
+        .warning {
+            background: #fffbe6;
+            border: 1px solid #ffe58f;
+            color: #faad14;
+        }
+        .error {
+            background: #fff2f0;
+            border: 1px solid #ffccc7;
+            color: #ff4d4f;
+        }
+        .test-form {
+            background: #fafafa;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 CORS问题修复测试</h1>
+        
+        <div class="error-info">
+            <h3>❌ 原始问题：</h3>
+            <p><strong>错误信息：</strong> Access to XMLHttpRequest blocked by CORS policy</p>
+            <p><strong>原因：</strong> 前端(http://192.168.219.130:5173) 访问后端(http://localhost:8101) 被浏览器阻止</p>
+        </div>
+
+        <div class="solution">
+            <h3>✅ 修复方案已应用：</h3>
+            <ul>
+                <li>✅ 更新了 vite.config.js 添加代理配置</li>
+                <li>✅ 修改了 .env 文件使用相对路径</li>
+                <li>✅ 后端添加了 @CrossOrigin 注解</li>
+                <li>✅ 创建了全局CORS配置类</li>
+            </ul>
+        </div>
+
+        <h2>🧪 登录功能测试</h2>
+        <div class="test-form">
+            <div class="form-group">
+                <label for="username">用户名:</label>
+                <input type="text" id="username" value="admin" placeholder="请输入用户名">
+            </div>
+            <div class="form-group">
+                <label for="password">密码:</label>
+                <input type="password" id="password" value="123456" placeholder="请输入密码">
+            </div>
+            <button class="btn" onclick="testLogin()">测试登录</button>
+            <button class="btn" onclick="testConnection()">测试连接</button>
+        </div>
+
+        <div id="status"></div>
+        <div id="response"></div>
+
+        <h2>📋 修复详情</h2>
+        <div class="solution">
+            <h4>1. Vite代理配置 (vite.config.js):</h4>
+            <pre>proxy: {
+  '/api': {
+    target: 'http://localhost:8080',
+    changeOrigin: true,
+    secure: false
+  }
+}</pre>
+            
+            <h4>2. 环境变量配置 (.env):</h4>
+            <pre>VITE_API_BASE_URL=</pre>
+            
+            <h4>3. 后端CORS配置:</h4>
+            <pre>@CrossOrigin(origins = {"http://localhost:5173", "http://192.168.219.130:5173"}, allowCredentials = "true")</pre>
+        </div>
+    </div>
+
+    <script>
+        function showStatus(message, type = 'success') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function showResponse(data) {
+            const responseDiv = document.getElementById('response');
+            responseDiv.innerHTML = `
+                <div class="solution">
+                    <h4>服务器响应:</h4>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                </div>
+            `;
+        }
+
+        async function testConnection() {
+            showStatus('🔍 正在测试连接...', 'warning');
+            
+            try {
+                const response = await fetch('/api/auth/current-user', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showStatus('✅ 连接测试成功！CORS问题已解决', 'success');
+                    showResponse(data);
+                } else {
+                    showStatus(`⚠️ 服务器响应: ${response.status} ${response.statusText}`, 'warning');
+                    const data = await response.json();
+                    showResponse(data);
+                }
+            } catch (error) {
+                showStatus(`❌ 连接失败: ${error.message}`, 'error');
+                console.error('连接测试失败:', error);
+            }
+        }
+
+        async function testLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                showStatus('❌ 请输入用户名和密码', 'error');
+                return;
+            }
+            
+            showStatus('🔐 正在测试登录...', 'warning');
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    showStatus('✅ 登录测试成功！CORS问题已完全解决', 'success');
+                    showResponse(data);
+                } else {
+                    showStatus(`⚠️ 登录失败: ${data.message || '未知错误'}`, 'warning');
+                    showResponse(data);
+                }
+            } catch (error) {
+                showStatus(`❌ 登录请求失败: ${error.message}`, 'error');
+                console.error('登录测试失败:', error);
+            }
+        }
+
+        // 页面加载时自动测试连接
+        window.onload = function() {
+            showStatus('🚀 CORS修复测试工具已加载', 'success');
+            setTimeout(testConnection, 1000);
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图案预览图功能测试</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .image-item {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+        .image-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .image-item .info {
+            font-size: 12px;
+            color: #666;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+        .upload-area:hover {
+            border-color: #1890ff;
+        }
+        .upload-area.dragover {
+            border-color: #1890ff;
+            background: #f0f9ff;
+        }
+        .btn {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover { background: #40a9ff; }
+        .btn-success { background: #52c41a; }
+        .btn-success:hover { background: #73d13d; }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+            color: #52c41a;
+        }
+        .warning {
+            background: #fffbe6;
+            border: 1px solid #ffe58f;
+            color: #faad14;
+        }
+        .error {
+            background: #fff2f0;
+            border: 1px solid #ffccc7;
+            color: #ff4d4f;
+        }
+        .url-test {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .url-test input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 图案预览图功能测试工具</h1>
+        
+        <div class="test-section">
+            <h3>📋 测试概述</h3>
+            <p>这个工具用于测试印刷图案管理页面的预览图功能，包括：</p>
+            <ul>
+                <li>现有图案数据的图片显示</li>
+                <li>图片上传功能</li>
+                <li>图片URL格式验证</li>
+                <li>静态资源访问测试</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 1. 现有图案数据测试</h3>
+            <button class="btn btn-success" onclick="loadExistingPatterns()">加载现有图案</button>
+            <div id="existing-patterns"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📤 2. 图片上传测试</h3>
+            <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
+                <div>点击或拖拽图片文件到这里上传</div>
+                <div style="font-size: 12px; color: #666; margin-top: 10px;">
+                    支持 JPG、PNG、GIF 格式，最大 5MB
+                </div>
+            </div>
+            <input type="file" id="file-input" accept="image/*" style="display: none;" onchange="handleFileUpload(event)">
+            <div id="upload-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔗 3. 图片URL测试</h3>
+            <div class="url-test">
+                <input type="text" id="test-url" placeholder="输入图片URL进行测试" value="/uploads/patterns/test-image.jpg">
+                <button class="btn" onclick="testImageUrl()">测试URL</button>
+            </div>
+            <div id="url-test-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🌐 4. 静态资源访问测试</h3>
+            <button class="btn" onclick="testStaticResource()">测试静态资源访问</button>
+            <div id="static-test-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 5. 数据库数据检查</h3>
+            <button class="btn" onclick="checkDatabaseData()">检查数据库数据</button>
+            <div id="database-check-result"></div>
+        </div>
+
+        <div id="status"></div>
+    </div>
+
+    <script>
+        function showStatus(message, type = 'success') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        // 加载现有图案数据
+        async function loadExistingPatterns() {
+            try {
+                showStatus('正在加载现有图案数据...', 'warning');
+                
+                const response = await fetch('/api/v1/process/print-patterns/all?page=0&size=20');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                const patterns = data.content || [];
+                
+                let html = `<div class="image-grid">`;
+                
+                if (patterns.length === 0) {
+                    html += '<div>没有找到图案数据</div>';
+                } else {
+                    patterns.forEach(pattern => {
+                        const imageUrl = getImageUrl(pattern.imageUrl);
+                        html += `
+                            <div class="image-item">
+                                <img src="${imageUrl}" 
+                                     alt="${pattern.patternName}" 
+                                     onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+5peg5Zu+54mH</text></svg>'; this.title='图片加载失败'">
+                                <div class="info">
+                                    <div><strong>${pattern.patternName}</strong></div>
+                                    <div>编号: ${pattern.patternCode}</div>
+                                    <div>URL: ${pattern.imageUrl || '无'}</div>
+                                    <div>完整URL: ${imageUrl}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                
+                html += '</div>';
+                document.getElementById('existing-patterns').innerHTML = html;
+                
+                showStatus(`✅ 成功加载 ${patterns.length} 个图案数据`, 'success');
+                
+            } catch (error) {
+                console.error('加载图案数据失败:', error);
+                showStatus(`❌ 加载失败: ${error.message}`, 'error');
+                document.getElementById('existing-patterns').innerHTML = 
+                    `<div class="error">加载失败: ${error.message}</div>`;
+            }
+        }
+
+        // 获取完整的图片URL
+        function getImageUrl(imageUrl) {
+            if (!imageUrl) return '';
+            
+            if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+                return imageUrl;
+            }
+            
+            return `http://localhost:8080${imageUrl}`;
+        }
+
+        // 处理文件上传
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            try {
+                showStatus('正在上传图片...', 'warning');
+                
+                // 验证文件类型
+                if (!file.type.startsWith('image/')) {
+                    throw new Error('只能上传图片文件');
+                }
+                
+                // 验证文件大小
+                if (file.size > 5 * 1024 * 1024) {
+                    throw new Error('文件大小不能超过5MB');
+                }
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const response = await fetch('/api/upload/image', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`上传失败: ${response.status} ${errorText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const imageUrl = getImageUrl(result.url);
+                    document.getElementById('upload-result').innerHTML = `
+                        <div class="success">
+                            <h4>✅ 上传成功！</h4>
+                            <p><strong>文件名:</strong> ${result.filename}</p>
+                            <p><strong>原始文件名:</strong> ${result.originalFilename}</p>
+                            <p><strong>文件大小:</strong> ${formatFileSize(result.size)}</p>
+                            <p><strong>存储路径:</strong> ${result.path}</p>
+                            <p><strong>访问URL:</strong> <a href="${imageUrl}" target="_blank">${imageUrl}</a></p>
+                            <div style="margin-top: 10px;">
+                                <img src="${imageUrl}" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                        </div>
+                    `;
+                    showStatus('✅ 图片上传成功！', 'success');
+                } else {
+                    throw new Error(result.message || '上传失败');
+                }
+                
+            } catch (error) {
+                console.error('文件上传失败:', error);
+                showStatus(`❌ 上传失败: ${error.message}`, 'error');
+                document.getElementById('upload-result').innerHTML = 
+                    `<div class="error">上传失败: ${error.message}</div>`;
+            }
+        }
+
+        // 测试图片URL
+        async function testImageUrl() {
+            const url = document.getElementById('test-url').value.trim();
+            if (!url) {
+                showStatus('请输入图片URL', 'warning');
+                return;
+            }
+            
+            try {
+                showStatus('正在测试图片URL...', 'warning');
+                
+                const fullUrl = getImageUrl(url);
+                
+                // 测试图片是否可以访问
+                const response = await fetch(fullUrl, { method: 'HEAD' });
+                
+                let html = `
+                    <div class="${response.ok ? 'success' : 'error'}">
+                        <h4>${response.ok ? '✅' : '❌'} URL测试结果</h4>
+                        <p><strong>输入URL:</strong> ${url}</p>
+                        <p><strong>完整URL:</strong> <a href="${fullUrl}" target="_blank">${fullUrl}</a></p>
+                        <p><strong>状态码:</strong> ${response.status} ${response.statusText}</p>
+                        <p><strong>内容类型:</strong> ${response.headers.get('content-type') || '未知'}</p>
+                `;
+                
+                if (response.ok) {
+                    html += `
+                        <div style="margin-top: 10px;">
+                            <img src="${fullUrl}" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; border-radius: 4px;" 
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <div style="display: none; color: red;">图片加载失败</div>
+                        </div>
+                    `;
+                }
+                
+                html += '</div>';
+                document.getElementById('url-test-result').innerHTML = html;
+                
+                showStatus(response.ok ? '✅ URL测试通过' : '❌ URL测试失败', response.ok ? 'success' : 'error');
+                
+            } catch (error) {
+                console.error('URL测试失败:', error);
+                showStatus(`❌ URL测试失败: ${error.message}`, 'error');
+                document.getElementById('url-test-result').innerHTML = 
+                    `<div class="error">URL测试失败: ${error.message}</div>`;
+            }
+        }
+
+        // 测试静态资源访问
+        async function testStaticResource() {
+            try {
+                showStatus('正在测试静态资源访问...', 'warning');
+                
+                const testUrls = [
+                    '/uploads/patterns/test-image.jpg',
+                    '/uploads/patterns/4106e9db-40d5-4922-96d8-3240a6c99e3f_R-C (1).jpg',
+                    '/uploads/patterns/deeaa61e-3742-40dc-9e41-3507caf50e5e_R-C.jpg'
+                ];
+                
+                let html = '<div><h4>静态资源访问测试结果:</h4>';
+                
+                for (const url of testUrls) {
+                    const fullUrl = getImageUrl(url);
+                    try {
+                        const response = await fetch(fullUrl, { method: 'HEAD' });
+                        html += `
+                            <div class="${response.ok ? 'success' : 'warning'}" style="margin: 5px 0; padding: 10px;">
+                                <strong>${response.ok ? '✅' : '⚠️'}</strong> ${url}<br>
+                                状态: ${response.status} ${response.statusText}<br>
+                                完整URL: <a href="${fullUrl}" target="_blank">${fullUrl}</a>
+                            </div>
+                        `;
+                    } catch (error) {
+                        html += `
+                            <div class="error" style="margin: 5px 0; padding: 10px;">
+                                <strong>❌</strong> ${url}<br>
+                                错误: ${error.message}
+                            </div>
+                        `;
+                    }
+                }
+                
+                html += '</div>';
+                document.getElementById('static-test-result').innerHTML = html;
+                
+                showStatus('✅ 静态资源测试完成', 'success');
+                
+            } catch (error) {
+                console.error('静态资源测试失败:', error);
+                showStatus(`❌ 静态资源测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 检查数据库数据
+        async function checkDatabaseData() {
+            try {
+                showStatus('正在检查数据库数据...', 'warning');
+                
+                const response = await fetch('/api/v1/process/print-patterns/all?page=0&size=100');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                const patterns = data.content || [];
+                
+                let html = `
+                    <div>
+                        <h4>数据库数据检查结果:</h4>
+                        <p><strong>总图案数:</strong> ${patterns.length}</p>
+                `;
+                
+                const stats = {
+                    hasImage: 0,
+                    noImage: 0,
+                    validPath: 0,
+                    invalidPath: 0
+                };
+                
+                patterns.forEach(pattern => {
+                    if (pattern.imageUrl) {
+                        stats.hasImage++;
+                        if (pattern.imageUrl.startsWith('/uploads/patterns/') || pattern.imageUrl.startsWith('http')) {
+                            stats.validPath++;
+                        } else {
+                            stats.invalidPath++;
+                        }
+                    } else {
+                        stats.noImage++;
+                    }
+                });
+                
+                html += `
+                        <p><strong>有图片:</strong> ${stats.hasImage} 个</p>
+                        <p><strong>无图片:</strong> ${stats.noImage} 个</p>
+                        <p><strong>路径格式正确:</strong> ${stats.validPath} 个</p>
+                        <p><strong>路径格式异常:</strong> ${stats.invalidPath} 个</p>
+                    </div>
+                `;
+                
+                if (stats.invalidPath > 0) {
+                    html += `
+                        <div class="warning">
+                            <h5>⚠️ 发现路径格式异常的图案:</h5>
+                            <ul>
+                    `;
+                    
+                    patterns.forEach(pattern => {
+                        if (pattern.imageUrl && 
+                            !pattern.imageUrl.startsWith('/uploads/patterns/') && 
+                            !pattern.imageUrl.startsWith('http')) {
+                            html += `<li>${pattern.patternCode}: ${pattern.imageUrl}</li>`;
+                        }
+                    });
+                    
+                    html += `
+                            </ul>
+                            <p>建议执行数据库修复脚本：修复图案预览图数据.sql</p>
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('database-check-result').innerHTML = html;
+                showStatus('✅ 数据库数据检查完成', 'success');
+                
+            } catch (error) {
+                console.error('数据库检查失败:', error);
+                showStatus(`❌ 数据库检查失败: ${error.message}`, 'error');
+                document.getElementById('database-check-result').innerHTML = 
+                    `<div class="error">数据库检查失败: ${error.message}</div>`;
+            }
+        }
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 拖拽上传功能
+        const uploadArea = document.getElementById('upload-area');
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const fileInput = document.getElementById('file-input');
+                fileInput.files = files;
+                handleFileUpload({ target: fileInput });
+            }
+        });
+
+        // 页面加载时自动加载现有图案
+        window.onload = function() {
+            showStatus('🎨 图案预览图测试工具已加载', 'success');
+            loadExistingPatterns();
+        };
+    </script>
+</body>
+</html>

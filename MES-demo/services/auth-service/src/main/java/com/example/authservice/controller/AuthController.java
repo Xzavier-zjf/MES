@@ -20,6 +20,7 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequestMapping("/api/auth")
+// CORS配置已在网关层统一处理，移除重复配置
 public class AuthController {
 
     @Autowired

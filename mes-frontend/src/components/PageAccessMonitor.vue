@@ -23,7 +23,10 @@ const logPageAccess = (path, isAuthorized) => {
     referrer: document.referrer
   }
   
-  console.log('页面访问日志:', logData)
+  // 只在开发环境或未授权访问时记录日志
+  if (import.meta.env.DEV || !isAuthorized) {
+    console.log('页面访问日志:', logData)
+  }
   
   // 这里可以发送到后端进行记录
   // sendAccessLog(logData)

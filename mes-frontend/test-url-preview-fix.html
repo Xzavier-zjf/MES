@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL预览修复验证</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+
+        .test-card {
+            background: white;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .step {
+            background: #f0f9ff;
+            padding: 15px;
+            border-left: 4px solid #409eff;
+            margin: 10px 0;
+        }
+
+        .button {
+            background: #409eff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .button:hover {
+            background: #66b1ff;
+        }
+
+        .success {
+            color: #52c41a;
+            font-weight: bold;
+        }
+
+        .warning {
+            color: #faad14;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="test-card">
+        <h1>🔧 URL预览功能修复验证</h1>
+        <p>验证图案管理页面中图片URL预览功能的修复效果</p>
+    </div>
+
+    <div class="test-card">
+        <h2>🧪 测试步骤</h2>
+
+        <div class="step">
+            <strong>步骤1:</strong> 测试URL预览功能
+            <br>
+            <a href="/test-url-preview.html" target="_blank" class="button">打开URL预览测试页面</a>
+        </div>
+
+        <div class="step">
+            <strong>步骤2:</strong> 在测试页面中选择一个测试URL
+            <br>
+            <span class="success">✅ 推荐使用: https://picsum.photos/300/200?random=1</span>
+        </div>
+
+        <div class="step">
+            <strong>步骤3:</strong> 点击"在图案管理中测试"按钮
+            <br>
+            <span class="warning">⚠️ 这会自动打开图案管理页面并填入URL</span>
+        </div>
+
+        <div class="step">
+            <strong>步骤4:</strong> 在图案管理页面中点击"新增图案"
+            <br>
+            <a href="/pattern" target="_blank" class="button">直接打开图案管理页面</a>
+        </div>
+
+        <div class="step">
+            <strong>步骤5:</strong> 在弹窗中选择"图片URL"方式
+            <br>
+            <span class="success">✅ URL应该会自动填入，预览应该正常显示</span>
+        </div>
+    </div>
+
+    <div class="test-card">
+        <h2>🔍 修复内容</h2>
+        <ul>
+            <li>✅ 添加了详细的调试日志</li>
+            <li>✅ 修复了监听器的immediate选项</li>
+            <li>✅ 改进了预览更新的时机</li>
+            <li>✅ 添加了测试URL自动填入功能</li>
+            <li>✅ 优化了编辑时的预览逻辑</li>
+        </ul>
+    </div>
+
+    <div class="test-card">
+        <h2>🐛 调试方法</h2>
+        <p>如果预览仍然不显示，请：</p>
+        <ol>
+            <li>打开浏览器开发者工具 (F12)</li>
+            <li>查看Console标签页的调试信息</li>
+            <li>检查是否有以下日志：
+                <ul>
+                    <li>"图片URL变化: [URL] 上传方式: url"</li>
+                    <li>"URL输入处理: [URL]"</li>
+                    <li>"更新预览图片: {uploadType: 'url', imageUrl: '[URL]'}"</li>
+                    <li>"设置URL预览: [URL]"</li>
+                </ul>
+            </li>
+            <li>如果没有看到这些日志，说明事件没有正确触发</li>
+        </ol>
+    </div>
+
+    <div class="test-card">
+        <h2>🎯 快速测试</h2>
+        <p>点击下面的按钮进行快速测试：</p>
+
+        <button class="button" onclick="quickTest()">一键测试URL预览</button>
+        <button class="button" onclick="openPatternManager()">打开图案管理</button>
+        <button class="button" onclick="setTestUrl()">设置测试URL</button>
+
+        <div id="testResult" style="margin-top: 15px;"></div>
+    </div>
+
+    <script>
+        function quickTest() {
+            const testUrl = 'https://picsum.photos/300/200?random=' + Math.floor(Math.random() * 100);
+            localStorage.setItem('testImageUrl', testUrl);
+
+            document.getElementById('testResult').innerHTML = `
+                <div style="background: #f0f9ff; padding: 10px; border-radius: 4px; margin-top: 10px;">
+                    <strong>✅ 测试URL已设置:</strong><br>
+                    ${testUrl}<br><br>
+                    <strong>下一步:</strong> 打开图案管理页面，点击"新增图案"，选择"图片URL"方式
+                </div>
+            `;
+        }
+
+        function openPatternManager() {
+            window.open('/pattern', '_blank');
+        }
+
+        function setTestUrl() {
+            const url = prompt('请输入测试图片URL:', 'https://picsum.photos/300/200?random=1');
+            if (url) {
+                localStorage.setItem('testImageUrl', url);
+                alert('测试URL已保存: ' + url);
+            }
+        }
+
+        // 检查当前状态
+        document.addEventListener('DOMContentLoaded', function () {
+            const savedUrl = localStorage.getItem('testImageUrl');
+            if (savedUrl) {
+                document.getElementById('testResult').innerHTML = `
+                    <div style="background: #fff2e8; padding: 10px; border-radius: 4px; margin-top: 10px;">
+                        <strong>📋 当前已保存测试URL:</strong><br>
+                        ${savedUrl}
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+
+</html>

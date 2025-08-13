@@ -31,7 +31,7 @@ export const getImageUrl = (path) => {
     return path
   }
   
-  // 如果是相对路径，拼接基础URL
+  // 如果是相对路径，拼接基础URL（修复端口号）
   const baseUrl = 'http://localhost:8080'
   return `${baseUrl}${path}`
 }

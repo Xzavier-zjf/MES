@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片更新功能测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .step {
+            background: #f0f9ff;
+            padding: 15px;
+            border-left: 4px solid #409eff;
+            margin: 10px 0;
+        }
+
+        .button {
+            background: #409eff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .button:hover {
+            background: #66b1ff;
+        }
+
+        .success {
+            color: #52c41a;
+            font-weight: bold;
+        }
+
+        .warning {
+            color: #faad14;
+            font-weight: bold;
+        }
+
+        .error {
+            color: #ff4d4f;
+            font-weight: bold;
+        }
+
+        .test-urls {
+            background: #f6ffed;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+
+        .url-item {
+            margin: 8px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #d9f7be;
+        }
+
+        .url-link {
+            color: #1890ff;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="test-section">
+        <h1>🔄 图片更新功能测试</h1>
+        <p>测试图案管理页面中编辑图案时更换图片的功能</p>
+    </div>
+
+    <div class="test-section">
+        <h2>🎯 测试目标</h2>
+        <ul>
+            <li>✅ 编辑现有图案时能正确更换图片URL</li>
+            <li>✅ 保存后本地数据立即更新</li>
+            <li>✅ 刷新页面后显示新的图片</li>
+            <li>✅ 处理各种URL格式（HTTP/HTTPS/相对路径）</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>📋 测试步骤</h2>
+
+        <div class="step">
+            <strong>步骤1:</strong> 准备测试图片URL
+            <div class="test-urls">
+                <h4>🖼️ 推荐测试图片URL：</h4>
+                <div class="url-item">
+                    <strong>随机图片1:</strong><br>
+                    <span class="url-link" onclick="copyUrl('https://picsum.photos/300/200?random=1')">
+                        https://picsum.photos/300/200?random=1
+                    </span>
+                </div>
+                <div class="url-item">
+                    <strong>随机图片2:</strong><br>
+                    <span class="url-link" onclick="copyUrl('https://picsum.photos/300/200?random=2')">
+                        https://picsum.photos/300/200?random=2
+                    </span>
+                </div>
+                <div class="url-item">
+                    <strong>占位图片:</strong><br>
+                    <span class="url-link"
+                        onclick="copyUrl('https://via.placeholder.com/300x200/67C23A/FFFFFF?text=Updated+Image')">
+                        https://via.placeholder.com/300x200/67C23A/FFFFFF?text=Updated+Image
+                    </span>
+                </div>
+                <div class="url-item">
+                    <strong>测试图片:</strong><br>
+                    <span class="url-link" onclick="copyUrl('https://httpbin.org/image/png')">
+                        https://httpbin.org/image/png
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="step">
+            <strong>步骤2:</strong> 打开图案管理页面
+            <br>
+            <a href="/pattern" target="_blank" class="button">打开图案管理页面</a>
+        </div>
+
+        <div class="step">
+            <strong>步骤3:</strong> 选择一个现有图案进行编辑
+            <br>
+            <span class="warning">⚠️ 点击任意图案行的"编辑"按钮</span>
+        </div>
+
+        <div class="step">
+            <strong>步骤4:</strong> 在编辑对话框中更换图片
+            <br>
+            <ol>
+                <li>选择"图片URL"上传方式</li>
+                <li>粘贴上面复制的测试URL</li>
+                <li>确认预览图片正确显示</li>
+                <li>点击"保存"按钮</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <strong>步骤5:</strong> 验证更新效果
+            <br>
+            <ol>
+                <li>检查表格中的图片是否立即更新</li>
+                <li>刷新页面，确认图片仍然是新的</li>
+                <li>查看控制台，确认没有500错误</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔧 修复内容</h2>
+        <ul>
+            <li>✅ <strong>本地数据同步:</strong> 保存后立即更新本地图案列表</li>
+            <li>✅ <strong>数据刷新:</strong> 保存成功后自动刷新数据</li>
+            <li>✅ <strong>URL处理优化:</strong> 改进图片URL的处理逻辑</li>
+            <li>✅ <strong>占位符显示:</strong> 无效图片显示美观的占位符</li>
+            <li>✅ <strong>调试信息:</strong> 添加详细的调试日志</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>🐛 问题排查</h2>
+        <p>如果图片更新仍然有问题，请检查：</p>
+
+        <div class="step">
+            <strong>控制台日志:</strong>
+            <ul>
+                <li>应该看到"本地数据已更新: [对象]"</li>
+                <li>应该看到"编辑成功"</li>
+                <li>不应该有500错误（已通过占位符解决）</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <strong>网络请求:</strong>
+            <ul>
+                <li>保存请求应该返回成功状态</li>
+                <li>刷新后的数据请求应该包含新的图片URL</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <strong>数据验证:</strong>
+            <ul>
+                <li>检查数据库中的图片URL是否已更新</li>
+                <li>确认前端接收到的数据包含新URL</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎮 快速测试</h2>
+        <button class="button" onclick="autoTest()">自动设置测试URL</button>
+        <button class="button" onclick="openPatternManager()">打开图案管理</button>
+        <button class="button" onclick="showDebugInfo()">显示调试信息</button>
+
+        <div id="testResult" style="margin-top: 15px;"></div>
+    </div>
+
+    <script>
+        function copyUrl(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                document.getElementById('testResult').innerHTML = `
+                    <div style="background: #f0f9ff; padding: 10px; border-radius: 4px;">
+                        <span class="success">✅ URL已复制到剪贴板:</span><br>
+                        ${url}
+                    </div>
+                `;
+            }).catch(() => {
+                // 备用方法
+                const textArea = document.createElement('textarea');
+                textArea.value = url;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+
+                document.getElementById('testResult').innerHTML = `
+                    <div style="background: #f0f9ff; padding: 10px; border-radius: 4px;">
+                        <span class="success">✅ URL已复制:</span><br>
+                        ${url}
+                    </div>
+                `;
+            });
+        }
+
+        function autoTest() {
+            const testUrl = 'https://picsum.photos/300/200?random=' + Math.floor(Math.random() * 1000);
+            copyUrl(testUrl);
+
+            setTimeout(() => {
+                document.getElementById('testResult').innerHTML += `
+                    <div style="background: #fff2e8; padding: 10px; border-radius: 4px; margin-top: 10px;">
+                        <strong>📋 测试指南:</strong><br>
+                        1. URL已复制，现在打开图案管理页面<br>
+                        2. 点击任意图案的"编辑"按钮<br>
+                        3. 选择"图片URL"方式<br>
+                        4. 粘贴URL并保存<br>
+                        5. 观察图片是否立即更新
+                    </div>
+                `;
+            }, 1000);
+        }
+
+        function openPatternManager() {
+            window.open('/pattern', '_blank');
+        }
+
+        function showDebugInfo() {
+            document.getElementById('testResult').innerHTML = `
+                <div style="background: #f5f5f5; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 12px;">
+                    <strong>🔍 调试检查清单:</strong><br><br>
+                    <strong>保存时应该看到的日志:</strong><br>
+                    ✓ "保存图案数据: Proxy(Object) {...}"<br>
+                    ✓ "请求数据: {...}"<br>
+                    ✓ "执行编辑操作，ID: [数字]"<br>
+                    ✓ "本地数据已更新: {...}"<br>
+                    ✓ "编辑成功"<br><br>
+                    
+                    <strong>不应该看到的错误:</strong><br>
+                    ✗ "GET .../uploads/patterns/... 500 (Internal Server Error)"<br>
+                    ✗ "保存失败: ..."<br><br>
+                    
+                    <strong>页面行为:</strong><br>
+                    ✓ 对话框关闭<br>
+                    ✓ 表格中的图片立即更新或显示占位符<br>
+                    ✓ 刷新页面后数据保持更新状态
+                </div>
+            `;
+        }
+
+        // 页面加载时的提示
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('🔄 图片更新功能测试页面已加载');
+            console.log('请按照步骤进行测试，验证图片更新功能');
+        });
+    </script>
+</body>
+
+</html>

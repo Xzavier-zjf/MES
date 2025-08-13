@@ -30,12 +30,51 @@ spring:
         - id: service-auth
           uri: lb://auth-service
           predicates:
-            - Path=/auth/**
+            - Path=/api/auth/**
+
+        # 添加直接路由支持
+        - id: equipment-health
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/health
+          filters:
+            - RewritePath=/api/health, /api/health
+
+        - id: equipment-direct
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/equipment/**
+
+        - id: process-direct
+          uri: http://localhost:8083
+          predicates:
+            - Path=/api/process/**
+
+        - id: production-direct
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/production/**
+
+        # 图案管理路由
+        - id: patterns
+          uri: http://localhost:8083
+          predicates:
+            - Path=/api/patterns/**
+
+        # 静态资源路由
+        - id: uploads
+          uri: http://localhost:8083
+          predicates:
+            - Path=/api/uploads/**
 
       globalcors:
         cors-configurations:
           '[/**]': # 对所有路径生效
-            allowedOrigins: "http://localhost:5173"  # 你的前端地址，根据实际改
+            allowedOrigins: 
+              - "http://localhost:5173"
+              - "http://localhost:5174"
+              - "http://192.168.219.130:5173"
+              - "http://192.168.219.130:5174"
             allowedMethods:
               - GET
               - POST

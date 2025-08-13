@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片上传功能测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-demo {
+            border: 2px dashed #d9d9d9;
+            border-radius: 6px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fafafa;
+            margin: 20px 0;
+        }
+
+        .upload-demo:hover {
+            border-color: #409eff;
+            background: #f0f9ff;
+        }
+
+        .upload-demo.drag-over {
+            border-color: #409eff;
+            background: #e6f7ff;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .upload-text {
+            font-size: 16px;
+            color: #606266;
+            margin-bottom: 8px;
+        }
+
+        .upload-hint {
+            font-size: 12px;
+            color: #909399;
+        }
+
+        .preview-area {
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px solid #e4e7ed;
+            border-radius: 6px;
+            background: #fafafa;
+        }
+
+        .preview-image {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .file-info {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f9ff;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .success {
+            color: #52c41a;
+            font-weight: bold;
+        }
+
+        .error {
+            color: #ff4d4f;
+            font-weight: bold;
+        }
+
+        .button {
+            background: #409eff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        .button:hover {
+            background: #66b1ff;
+        }
+
+        .button:disabled {
+            background: #c0c4cc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>📷 图片上传功能测试</h1>
+        <p>测试图案管理页面的图片上传功能</p>
+    </div>
+
+    <div class="test-section">
+        <h2>🎯 功能特点</h2>
+        <ul>
+            <li>✅ 支持点击选择文件</li>
+            <li>✅ 支持拖拽上传</li>
+            <li>✅ 实时预览图片</li>
+            <li>✅ 文件类型验证</li>
+            <li>✅ 文件大小限制</li>
+            <li>✅ 上传进度显示</li>
+            <li>✅ 多种上传方式（文件/URL/路径）</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>📁 文件上传演示</h2>
+
+        <div class="upload-demo" onclick="document.getElementById('fileInput').click()"
+            ondragover="event.preventDefault(); this.classList.add('drag-over')" ondrop="handleDrop(event)"
+            ondragleave="this.classList.remove('drag-over')">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">点击选择图片或拖拽到此处</div>
+            <div class="upload-hint">支持 JPG、PNG、GIF 格式，最大 5MB</div>
+        </div>
+
+        <input type="file" id="fileInput" accept="image/*" style="display: none" onchange="handleFileSelect(event)">
+
+        <div id="previewArea" class="preview-area" style="display: none;">
+            <h3>📷 图片预览</h3>
+            <img id="previewImage" class="preview-image" />
+            <div id="fileInfo" class="file-info"></div>
+            <button class="button" onclick="simulateUpload()" id="uploadBtn">上传图片</button>
+            <button class="button" onclick="clearPreview()">清除</button>
+        </div>
+
+        <div id="uploadResult" style="margin-top: 20px;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔗 URL上传演示</h2>
+        <input type="url" id="urlInput" placeholder="请输入图片URL"
+            style="width: 70%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        <button class="button" onclick="loadFromUrl()">加载图片</button>
+
+        <div id="urlPreview" style="margin-top: 20px;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎨 集成到图案管理</h2>
+        <p>此功能已集成到图案管理页面的"上传/编辑图案"对话框中：</p>
+        <button class="button" onclick="openPatternManager()">打开图案管理页面</button>
+        <button class="button" onclick="openMainSystem()">打开主系统</button>
+    </div>
+
+    <script>
+        let selectedFile = null;
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            event.target.classList.remove('drag-over');
+
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        }
+
+        function processFile(file) {
+            // 验证文件类型
+            if (!file.type.startsWith('image/')) {
+                showResult('error', '请选择图片文件！');
+                return;
+            }
+
+            // 验证文件大小 (5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                showResult('error', '文件大小不能超过5MB！');
+                return;
+            }
+
+            selectedFile = file;
+
+            // 显示预览
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                document.getElementById('previewImage').src = e.target.result;
+                document.getElementById('fileInfo').innerHTML = `
+                    <strong>文件名:</strong> ${file.name}<br>
+                    <strong>文件大小:</strong> ${formatFileSize(file.size)}<br>
+                    <strong>文件类型:</strong> ${file.type}
+                `;
+                document.getElementById('previewArea').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+
+            showResult('success', '文件选择成功，可以预览和上传了！');
+        }
+
+        function simulateUpload() {
+            if (!selectedFile) {
+                showResult('error', '请先选择文件！');
+                return;
+            }
+
+            const uploadBtn = document.getElementById('uploadBtn');
+            uploadBtn.textContent = '上传中...';
+            uploadBtn.disabled = true;
+
+            // 模拟上传过程
+            setTimeout(() => {
+                const success = Math.random() > 0.2; // 80% 成功率
+
+                if (success) {
+                    const fileName = `uploaded_${Date.now()}_${selectedFile.name}`;
+                    showResult('success', `上传成功！文件保存为: ${fileName}`);
+                } else {
+                    showResult('error', '上传失败，请重试！');
+                }
+
+                uploadBtn.textContent = '上传图片';
+                uploadBtn.disabled = false;
+            }, 2000);
+        }
+
+        function clearPreview() {
+            selectedFile = null;
+            document.getElementById('previewArea').style.display = 'none';
+            document.getElementById('fileInput').value = '';
+            document.getElementById('uploadResult').innerHTML = '';
+        }
+
+        function loadFromUrl() {
+            const url = document.getElementById('urlInput').value;
+            if (!url) {
+                alert('请输入图片URL！');
+                return;
+            }
+
+            const preview = document.getElementById('urlPreview');
+            preview.innerHTML = `
+                <h3>🔗 URL图片预览</h3>
+                <img src="${url}" class="preview-image" 
+                     onload="showResult('success', 'URL图片加载成功！')"
+                     onerror="showResult('error', 'URL图片加载失败，请检查链接是否正确！')" />
+                <div class="file-info">
+                    <strong>图片URL:</strong> ${url}
+                </div>
+            `;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function showResult(type, message) {
+            const resultDiv = document.getElementById('uploadResult');
+            resultDiv.innerHTML = `<div class="${type}">${type === 'success' ? '✅' : '❌'} ${message}</div>`;
+        }
+
+        function openPatternManager() {
+            window.open('/pattern', '_blank');
+        }
+
+        function openMainSystem() {
+            window.open('/', '_blank');
+        }
+
+        // 页面加载完成后的提示
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('📷 图片上传功能测试页面已加载');
+            console.log('✅ 支持文件选择、拖拽上传、URL加载等功能');
+        });
+    </script>
+</body>
+
+</html>

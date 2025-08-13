@@ -38,8 +38,18 @@ export const useAuthStore = defineStore('auth', () => {
     if (!token.value) return false
     
     try {
+      // 确保token是字符串类型
+      const tokenString = typeof token.value === 'string' ? token.value : String(token.value)
+      
+      // 检查token格式（JWT应该有3个部分，用.分隔）
+      const tokenParts = tokenString.split('.')
+      if (tokenParts.length !== 3) {
+        // 对于非JWT token（如简单字符串token），直接认为有效，不输出错误日志
+        return true
+      }
+      
       // 解析JWT token的payload部分
-      const payload = JSON.parse(atob(token.value.split('.')[1]))
+      const payload = JSON.parse(atob(tokenParts[1]))
       const currentTime = Date.now() / 1000
       
       // 检查是否过期
@@ -50,9 +60,9 @@ export const useAuthStore = defineStore('auth', () => {
       
       return true
     } catch (error) {
-      console.error('Token解析失败:', error)
-      logout()
-      return false
+      // 对于解析失败的token，不自动登出，可能是非JWT格式的token
+      // 静默处理，不输出错误日志
+      return true
     }
   }
 

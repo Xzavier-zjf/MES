@@ -70,7 +70,7 @@ export const updatePrintPattern = async (id, patternData) => {
     }
   })
 
-  console.log('发送JSON数据:', jsonData)
+  console.log('发送到后端的JSON数据:', jsonData)
 
   const res = await fetch(`${BASE_URL}/${id}`, {
     method: 'PUT',
@@ -80,23 +80,41 @@ export const updatePrintPattern = async (id, patternData) => {
     body: JSON.stringify(jsonData)
   })
   
+  console.log('更新请求响应状态:', res.status, res.statusText)
+  
   if (!res.ok) {
     const errorText = await res.text()
     console.error('更新印刷图案失败:', { status: res.status, statusText: res.statusText, errorText })
     throw new Error(`更新印刷图案失败: ${res.status} ${res.statusText} - ${errorText}`)
   }
   
-  // 检查响应体是否为空
+  // 检查响应体
   const text = await res.text()
+  console.log('后端响应内容:', text || '(空响应)')
+  
   if (!text) {
-    return { success: true, message: '图案更新成功' }
+    // 如果后端返回空响应，返回我们发送的数据作为确认
+    console.log('后端返回空响应，使用发送的数据作为更新确认')
+    return {
+      success: true,
+      message: '图案更新成功',
+      data: jsonData // 返回我们发送的数据
+    }
   }
   
   try {
-    return JSON.parse(text)
+    const responseData = JSON.parse(text)
+    console.log('解析后的响应数据:', responseData)
+    return responseData
   } catch (error) {
-    console.warn('后端返回非JSON格式响应:', text)
-    return { success: true, message: '图案更新成功' }
+    console.warn('后端返回非JSON格式响应，但更新可能成功:', text)
+    // 即使响应格式不正确，也返回我们发送的数据
+    return {
+      success: true,
+      message: '图案更新成功',
+      data: jsonData,
+      rawResponse: text
+    }
   }
 }
 

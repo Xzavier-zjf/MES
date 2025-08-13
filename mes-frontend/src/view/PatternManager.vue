@@ -108,11 +108,20 @@
           <el-table-column label="预览图" width="120">
             <template #default="{ row }">
               <el-image 
-                :src="row.imageUrl ? `http://localhost:7000${row.imageUrl}` : ''" 
+                :src="getImageUrl(row.imageUrl)" 
                 fit="cover" 
                 style="width: 60px; height: 60px"
-                :preview-src-list="row.imageUrl ? [`http://localhost:7000${row.imageUrl}`] : []"
-              />
+                :preview-src-list="row.imageUrl ? [getImageUrl(row.imageUrl)] : []"
+                :lazy="true"
+                @error="handleImageLoadError"
+              >
+                <template #error>
+                  <div class="image-slot">
+                    <i class="el-icon-picture-outline"></i>
+                    <div>暂无图片</div>
+                  </div>
+                </template>
+              </el-image>
             </template>
           </el-table-column>
           <el-table-column prop="machineModel" label="适用机型" width="120" />
@@ -196,82 +205,119 @@
         </el-form-item>
         <el-form-item label="图案图片">
           <div class="image-upload-container">
+            <!-- 编辑模式下显示原图片 -->
+            <div v-if="isEdit && form.imageUrl" class="original-image-section">
+              <div class="section-title">当前图片：</div>
+              <div class="original-image-preview">
+                <img :src="getImageUrl(form.imageUrl)" class="original-preview-img" @error="handleImageError" />
+                <div class="original-image-info">
+                  <div class="image-url-text">{{ form.imageUrl }}</div>
+                </div>
+              </div>
+            </div>
+            
             <!-- 上传方式选择 -->
             <el-radio-group v-model="imageUploadType" style="margin-bottom: 12px;">
-              <el-radio label="url">图片URL</el-radio>
-              <el-radio label="file">文件上传</el-radio>
-              <el-radio label="path">文件路径</el-radio>
+              <el-radio value="file">文件上传</el-radio>
+              <el-radio value="url">图片URL</el-radio>
+              <el-radio value="path">文件路径</el-radio>
             </el-radio-group>
-            
-            <!-- URL输入 -->
-            <div v-if="imageUploadType === 'url'" class="upload-section">
-              <div class="url-input-group">
-                <el-input 
-                  v-model="form.imageUrl" 
-                  placeholder="请输入图片URL，如: https://example.com/image.jpg" 
-                  clearable
-                />
-                <el-button 
-                  type="primary" 
-                  size="small" 
-                  @click="validateImage(form.imageUrl)"
-                  :disabled="!form.imageUrl"
-                >
-                  验证
-                </el-button>
-              </div>
-              <div class="upload-tip">支持http/https链接的图片URL</div>
-            </div>
             
             <!-- 文件上传 -->
             <div v-if="imageUploadType === 'file'" class="upload-section">
-              <el-upload
-                ref="uploadRef"
-                action="#"
-                list-type="picture-card"
-                :auto-upload="false"
-                :limit="1"
-                :on-change="handleFileChange"
-                :on-remove="handleFileRemove"
-                :before-upload="beforeFileUpload"
-                accept="image/*"
-              >
-                <template #default>
-                  <div class="upload-trigger">
-                    <i class="el-icon-plus"></i>
-                    <div class="upload-text">点击上传</div>
+              <div class="file-upload-area" 
+                   @click="triggerFileInput"
+                   @dragover.prevent
+                   @drop.prevent="handleFileDrop"
+                   :class="{ 'drag-over': isDragOver, 'uploading': uploading }"
+                   @dragenter="isDragOver = true"
+                   @dragleave="isDragOver = false">
+                <div v-if="!selectedFile && !uploading" class="upload-placeholder">
+                  <div class="upload-icon">📁</div>
+                  <div class="upload-text">点击选择图片或拖拽到此处</div>
+                  <div class="upload-hint">支持 JPG、PNG、GIF、WEBP 格式，最大 5MB</div>
+                </div>
+                <div v-else-if="uploading" class="upload-progress">
+                  <div class="upload-icon">⏳</div>
+                  <div class="upload-text">正在上传...</div>
+                  <div class="upload-hint">请稍候，文件上传中</div>
+                </div>
+                <div v-else class="file-info">
+                  <div class="file-preview">
+                    <img v-if="filePreviewUrl" :src="filePreviewUrl" class="preview-thumbnail" />
+                    <div v-else class="file-icon">📄</div>
                   </div>
-                </template>
-                <template #file="{ file }">
-                  <div class="upload-preview">
-                    <img :src="file.url" class="preview-image" />
-                    <div class="file-info">
-                      <span>{{ file.name }}</span>
-                      <span class="file-size">{{ formatFileSize(file.size) }}</span>
+                  <div class="file-details">
+                    <div class="file-name">{{ selectedFile.name }}</div>
+                    <div class="file-size">{{ formatFileSize(selectedFile.size) }}</div>
+                    <div class="file-type">{{ selectedFile.type }}</div>
+                    <div class="file-actions">
+                      <el-button size="small" type="primary" @click="uploadFile" :loading="uploading" :disabled="uploading">
+                        {{ uploading ? '上传中...' : '上传到服务器' }}
+                      </el-button>
+                      <el-button size="small" @click="clearSelectedFile" :disabled="uploading">移除</el-button>
                     </div>
                   </div>
-                </template>
-              </el-upload>
-              <div class="upload-tip">支持JPG、PNG、GIF等图片格式，最大5MB</div>
+                </div>
+              </div>
+              <input 
+                ref="fileInput" 
+                type="file" 
+                accept="image/*" 
+                style="display: none" 
+                @change="handleFileSelect"
+              />
+              <div class="upload-tip">
+                支持拖拽上传，选择文件后点击"上传到服务器"按钮。
+                <span v-if="isEdit" style="color: #f56c6c;">上传成功后将替换当前图片。</span>
+              </div>
+            </div>
+            
+            <!-- URL输入 -->
+            <div v-if="imageUploadType === 'url'" class="upload-section">
+              <el-input 
+                v-model="form.imageUrl" 
+                placeholder="请输入图片URL，如: https://example.com/image.jpg" 
+                clearable
+                @input="handleUrlInput"
+              />
+              <div class="upload-tip">支持http/https链接的图片URL</div>
             </div>
             
             <!-- 文件路径 -->
             <div v-if="imageUploadType === 'path'" class="upload-section">
-              <el-input 
+              <el-select 
                 v-model="form.imagePath" 
-                placeholder="请输入服务器图片路径，如: /uploads/patterns/image.jpg" 
+                placeholder="选择现有图片或输入新路径" 
                 clearable
-              />
-              <div class="upload-tip">输入服务器上的图片文件路径</div>
+                filterable
+                allow-create
+                style="width: 100%"
+                @change="handlePathSelect"
+              >
+                <el-option 
+                  v-for="path in predefinedImagePaths" 
+                  :key="path" 
+                  :label="path" 
+                  :value="path"
+                />
+              </el-select>
+              <div class="upload-tip">选择现有图片路径或输入新的服务器路径</div>
             </div>
             
             <!-- 图片预览 -->
             <div v-if="previewImageUrl" class="image-preview">
               <div class="preview-header">
-                <span>图片预览</span>
+                <span>{{ isEdit ? '新图片预览' : '图片预览' }}</span>
                 <el-button type="text" size="small" @click="clearImage">清除</el-button>
               </div>
               <img :src="previewImageUrl" class="preview-img" @error="handleImageError" />
+              <div v-if="isEdit" class="image-change-notice">
+                <el-tag type="warning" size="small">
+                  <i class="el-icon-warning"></i>
+                  保存后将替换当前图片
+                </el-tag>
+              </div>
             </div>
           </div>
         </el-form-item>
@@ -322,7 +368,7 @@ import { getPrintPatterns, updatePrintPattern, deletePrintPattern, createPrintPa
 import { getPlans } from '@/api/plans'
 import { getTasks } from '@/api/tasks'
 import { getDevices } from '@/api/devices'
-import { uploadImage, getImageUrl, validateImageUrl } from '@/api/upload'
+import { validateImageUrl, uploadImage } from '@/api/upload'
 import { useAppStore } from '@/stores'
 import { validatePatternQuantityLogic, generateQuantityLogicReport } from '@/utils/quantityLogicValidator'
 
@@ -420,9 +466,26 @@ const form = ref({
 })
 
 // 图片上传相关
-const imageUploadType = ref('url')
+const imageUploadType = ref('file')
 const previewImageUrl = ref('')
 const uploadRef = ref(null)
+const fileInput = ref(null)
+const selectedFile = ref(null)
+const filePreviewUrl = ref('')
+const uploading = ref(false)
+const isDragOver = ref(false)
+
+// 预定义的图片路径（从数据库中的现有数据）
+const predefinedImagePaths = ref([
+  '/uploads/patterns/4106e9db-40d5-4922-96d8-3240a6c99e3f_R-C (1).jpg',
+  '/uploads/patterns/deeaa61e-3742-40dc-9e41-3507caf50e5e_R-C.jpg',
+  '/uploads/patterns/819aad2c-5506-4a54-9288-1836982876ed_2126.png_860.png',
+  '/uploads/patterns/test-pattern-1.jpg',
+  '/uploads/patterns/test-pattern-2.png',
+  '/uploads/patterns/geometric-pattern.jpg',
+  '/uploads/patterns/marble-texture.jpg',
+  '/uploads/patterns/chinese-cloud.png'
+])
 
 // 筛选图案
 const filterPatterns = () => {
@@ -463,43 +526,76 @@ const openDialog = () => {
     imagePath: ''
   }
   
-  // 重置上传相关状态
-  imageUploadType.value = 'url'
-  previewImageUrl.value = ''
-  
-  // 清除上传组件
-  if (uploadRef.value) {
-    uploadRef.value.clearFiles()
+  // 检查是否有测试URL
+  const testUrl = localStorage.getItem('testImageUrl')
+  if (testUrl) {
+    form.value.imageUrl = testUrl
+    imageUploadType.value = 'url'
+    localStorage.removeItem('testImageUrl') // 使用后清除
+    console.log('使用测试URL:', testUrl)
+  } else {
+    // 重置上传相关状态
+    imageUploadType.value = 'file'
   }
+  
+  previewImageUrl.value = ''
+  clearSelectedFile()
+  
+  // 延迟更新预览
+  setTimeout(() => {
+    updatePreviewImage()
+  }, 100)
   
   console.log('新增图案，初始化表单:', form.value)
 }
 
 // 监听图片URL变化
-watch(() => form.value.imageUrl, (newUrl) => {
-  if (imageUploadType.value === 'url' && newUrl) {
-    updatePreviewImage();
+watch(() => form.value.imageUrl, (newUrl, oldUrl) => {
+  console.log('图片URL变化:', { oldUrl, newUrl, uploadType: imageUploadType.value })
+  
+  // 只在URL上传方式下自动更新预览
+  if (imageUploadType.value === 'url') {
+    // 防抖处理，避免输入过程中频繁更新
+    clearTimeout(updatePreviewImage.timer)
+    updatePreviewImage.timer = setTimeout(() => {
+      updatePreviewImage()
+    }, 300) // 300ms 防抖
   }
-})
+}, { immediate: false }) // 不立即执行，避免初始化时的不必要更新
 
 // 监听图片路径变化
-watch(() => form.value.imagePath, (newPath) => {
-  if (imageUploadType.value === 'path' && newPath) {
-    updatePreviewImage();
+watch(() => form.value.imagePath, (newPath, oldPath) => {
+  console.log('图片路径变化:', { oldPath, newPath, uploadType: imageUploadType.value })
+  
+  // 只在路径上传方式下自动更新预览
+  if (imageUploadType.value === 'path') {
+    updatePreviewImage()
   }
 })
 
 // 监听上传方式变化
-watch(imageUploadType, (newType) => {
-  if (newType === 'url') {
-    form.value.imagePath = '';
+watch(imageUploadType, (newType, oldType) => {
+  console.log('上传方式变化:', { oldType, newType })
+  
+  // 清除其他方式的数据，但保留当前方式的数据
+  if (newType === 'file') {
+    form.value.imageUrl = ''
+    form.value.imagePath = ''
+  } else if (newType === 'url') {
+    form.value.imagePath = ''
+    clearSelectedFile()
   } else if (newType === 'path') {
-    form.value.imageUrl = '';
-  } else if (newType === 'file') {
-    form.value.imageUrl = '';
-    form.value.imagePath = '';
+    form.value.imageUrl = ''
+    clearSelectedFile()
   }
-  previewImageUrl.value = '';
+  
+  // 清除预览，然后根据新方式更新
+  previewImageUrl.value = ''
+  
+  // 延迟更新预览，确保数据已清理
+  setTimeout(() => {
+    updatePreviewImage()
+  }, 100)
 })
 
 // 编辑图案
@@ -537,11 +633,17 @@ const editPattern = (row) => {
   } else if (row.imageUrl && row.imageUrl.startsWith('/')) {
     imageUploadType.value = 'path'
   } else {
-    imageUploadType.value = 'url'
+    imageUploadType.value = 'file'
   }
   
+  // 清除文件选择状态
+  clearSelectedFile()
+  
   // 更新预览图片
-  updatePreviewImage()
+  setTimeout(() => {
+    updatePreviewImage()
+  }, 100) // 延迟一点确保数据已更新
+  
   console.log('编辑图案，表单数据:', form.value)
   console.log('编辑图案，上传方式:', imageUploadType.value)
 }
@@ -564,18 +666,48 @@ const savePattern = async () => {
     
     // 验证必填字段
     if (!form.value.patternCode || !form.value.patternName) {
-      alert('请填写图案编号和图案名称')
+      showMessage('error', '请填写图案编号和图案名称')
       return
     }
     
     // 根据上传方式确定图片字段
     let imageField = '';
     if (imageUploadType.value === 'url') {
-      imageField = form.value.imageUrl || '';
+      imageField = form.value.imageUrl?.trim() || '';
+      console.log('使用URL方式，图片字段:', imageField)
     } else if (imageUploadType.value === 'path') {
-      imageField = form.value.imagePath || '';
+      imageField = form.value.imagePath?.trim() || '';
+      console.log('使用路径方式，图片字段:', imageField)
     } else if (imageUploadType.value === 'file') {
-      imageField = form.value.imageUrl || '';
+      // 如果是文件上传方式，使用已上传的URL
+      imageField = form.value.imageUrl?.trim() || '';
+      console.log('使用文件上传方式，图片字段:', imageField)
+      
+      // 验证文件上传是否完成
+      if (!imageField) {
+        showMessage('error', '请先上传文件到服务器')
+        return
+      }
+    }
+    
+    // 验证图片字段
+    if (imageField) {
+      console.log('验证图片字段:', imageField)
+      
+      // 对于URL方式，进行基本格式验证
+      if (imageUploadType.value === 'url') {
+        try {
+          new URL(imageField)
+        } catch (error) {
+          showMessage('error', '图片URL格式无效，请检查输入')
+          return
+        }
+      }
+      
+      // 异步验证图片可访问性（不阻塞保存）
+      validateImage(imageField).catch(error => {
+        console.warn('图片验证失败，但继续保存:', error)
+      })
     }
     
     // 构建请求数据对象
@@ -597,24 +729,65 @@ const savePattern = async () => {
     if (form.value.id) {
       // 编辑逻辑
       console.log('执行编辑操作，ID:', form.value.id)
-      const updatedData = await updatePrintPatternLocal(form.value.id, requestData);
-      const index = patterns.value.findIndex(p => p.id === form.value.id);
-      if (index !== -1) {
-        patterns.value[index] = { ...patterns.value[index], ...updatedData };
+      console.log('发送到后端的数据:', requestData)
+      
+      try {
+        const updatedData = await updatePrintPatternLocal(form.value.id, requestData);
+        console.log('后端返回的数据:', updatedData)
+        
+        const index = patterns.value.findIndex(p => p.id === form.value.id);
+        if (index !== -1) {
+          // 构建完整的更新数据，优先使用请求数据确保一致性
+          const completeUpdatedData = {
+            ...patterns.value[index], // 保留原有数据
+            ...requestData,           // 应用请求的更新数据
+            id: form.value.id,        // 确保ID不变
+            imageUrl: imageField      // 明确设置图片URL
+          };
+          
+          // 如果后端返回了数据，合并后端数据
+          if (updatedData && typeof updatedData === 'object') {
+            Object.assign(completeUpdatedData, updatedData);
+            // 但仍然确保图片URL是我们期望的值
+            completeUpdatedData.imageUrl = imageField;
+          }
+          
+          patterns.value[index] = completeUpdatedData;
+          console.log('本地数据已更新:', patterns.value[index])
+        }
+        
+        // 延迟刷新数据以确保后端数据已保存
+        setTimeout(async () => {
+          try {
+            console.log('延迟验证：重新获取数据以确认更新...')
+            await fetchPrintPatterns()
+            console.log('数据刷新完成')
+          } catch (error) {
+            console.warn('数据刷新失败:', error)
+          }
+        }, 1000)
+        
+        showMessage('success', '图案更新成功')
+        console.log('编辑成功，新图片URL:', imageField)
+      } catch (error) {
+        console.error('更新操作失败:', error)
+        throw error // 重新抛出错误以便外层catch处理
       }
-      console.log('编辑成功')
     } else {
       // 新增逻辑
       console.log('执行新增操作')
       const response = await createPrintPattern(requestData);
       patterns.value.unshift(response);
       total.value++;
+      
+      showMessage('success', '图案创建成功')
       console.log('新增成功')
     }
+    
     dialogVisible.value = false;
   } catch (error) {
     console.error('保存失败:', error);
-    alert('保存失败: ' + (error.message || '未知错误'));
+    showMessage('error', '保存失败: ' + (error.message || '未知错误'));
   }
 };
 
@@ -624,59 +797,46 @@ const handleImageUrlChange = (url) => {
   updatePreviewImage();
 }
 
-// 文件上传处理
-const handleFileChange = async (file) => {
-  console.log('文件上传:', file);
-  try {
-    if (file.raw) {
-      // 显示上传进度
-      showMessage('info', '正在上传图片...')
-      
-      // 上传到服务器
-      const uploadResult = await uploadImage(file.raw);
-      console.log('上传结果:', uploadResult);
-      
-      // 设置图片URL
-      form.value.imageUrl = uploadResult.url || uploadResult.path;
-      previewImageUrl.value = getImageUrl(form.value.imageUrl);
-      
-      showMessage('success', '图片上传成功')
-    }
-  } catch (error) {
-    console.error('文件上传失败:', error);
-    showMessage('error', '图片上传失败: ' + (error.message || '未知错误'))
-  }
-}
-
-// 文件移除处理
-const handleFileRemove = () => {
-  form.value.imageUrl = '';
-  previewImageUrl.value = '';
-}
-
-// 文件上传前验证
-const beforeFileUpload = (file) => {
-  const isImage = file.type.startsWith('image/');
-  const isLt5M = file.size / 1024 / 1024 < 5;
-
-  if (!isImage) {
-    showMessage('error', '只能上传图片文件!')
-    return false;
-  }
-  if (!isLt5M) {
-    showMessage('error', '图片大小不能超过 5MB!')
-    return false;
-  }
-  return true;
-}
+// 简化的图片处理方法（移除复杂的上传功能）
 
 // 更新预览图片
 const updatePreviewImage = () => {
-  if (imageUploadType.value === 'url' && form.value.imageUrl) {
-    previewImageUrl.value = form.value.imageUrl;
-  } else if (imageUploadType.value === 'path' && form.value.imagePath) {
+  console.log('更新预览图片:', {
+    uploadType: imageUploadType.value,
+    imageUrl: form.value.imageUrl,
+    imagePath: form.value.imagePath
+  })
+  
+  let newPreviewUrl = ''
+  
+  if (imageUploadType.value === 'url' && form.value.imageUrl?.trim()) {
+    newPreviewUrl = form.value.imageUrl.trim()
+    console.log('设置URL预览:', newPreviewUrl)
+  } else if (imageUploadType.value === 'path' && form.value.imagePath?.trim()) {
     // 使用API获取完整的图片URL
-    previewImageUrl.value = getImageUrl(form.value.imagePath);
+    newPreviewUrl = getImageUrl(form.value.imagePath.trim())
+    console.log('设置路径预览:', newPreviewUrl)
+  } else if (imageUploadType.value === 'file' && form.value.imageUrl?.trim()) {
+    // 文件上传后的预览
+    newPreviewUrl = getImageUrl(form.value.imageUrl.trim())
+    console.log('设置文件预览:', newPreviewUrl)
+  } else {
+    console.log('清除预览')
+  }
+  
+  // 防抖更新预览URL，避免频繁更新
+  if (previewImageUrl.value !== newPreviewUrl) {
+    previewImageUrl.value = newPreviewUrl
+    
+    // 如果有新的预览URL，记录更换操作
+    if (newPreviewUrl) {
+      console.log('✅ 图片预览已更新:', newPreviewUrl)
+      
+      // 可选：显示成功提示（但不要太频繁）
+      if (isEdit.value) {
+        showMessage('success', '图片预览已更新')
+      }
+    }
   }
 }
 
@@ -685,9 +845,6 @@ const clearImage = () => {
   form.value.imageUrl = '';
   form.value.imagePath = '';
   previewImageUrl.value = '';
-  if (uploadRef.value) {
-    uploadRef.value.clearFiles();
-  }
 }
 
 // 图片加载错误处理
@@ -720,6 +877,207 @@ const formatFileSize = (bytes) => {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// 文件上传相关函数
+const triggerFileInput = () => {
+  fileInput.value?.click()
+}
+
+const handleFileSelect = (event) => {
+  const file = event.target.files[0]
+  if (file) {
+    processSelectedFile(file)
+  }
+}
+
+const handleFileDrop = (event) => {
+  isDragOver.value = false
+  const files = event.dataTransfer.files
+  if (files.length > 0) {
+    processSelectedFile(files[0])
+  }
+}
+
+const processSelectedFile = (file) => {
+  console.log('处理选择的文件:', file.name, file.type, file.size)
+  
+  // 验证文件类型
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp']
+  if (!file.type.startsWith('image/') || !allowedTypes.includes(file.type)) {
+    showMessage('error', `不支持的文件类型: ${file.type}。请选择 JPG、PNG、GIF、WEBP 或 BMP 格式的图片`)
+    return
+  }
+  
+  // 验证文件大小 (5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    showMessage('error', `文件大小 ${formatFileSize(file.size)} 超过限制，请选择小于 5MB 的图片`)
+    return
+  }
+  
+  // 验证文件名
+  if (file.name.length > 100) {
+    showMessage('error', '文件名过长，请选择文件名少于100个字符的文件')
+    return
+  }
+  
+  selectedFile.value = file
+  console.log('文件验证通过，开始创建预览')
+  
+  // 创建预览
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    filePreviewUrl.value = e.target.result
+    console.log('文件预览创建成功')
+  }
+  reader.onerror = (e) => {
+    console.error('文件读取失败:', e)
+    showMessage('error', '文件读取失败，请重新选择')
+  }
+  reader.readAsDataURL(file)
+}
+
+const clearSelectedFile = () => {
+  selectedFile.value = null
+  filePreviewUrl.value = ''
+  if (fileInput.value) {
+    fileInput.value.value = ''
+  }
+}
+
+const uploadFile = async () => {
+  if (!selectedFile.value) {
+    showMessage('error', '请先选择文件')
+    return
+  }
+  
+  uploading.value = true
+  
+  try {
+    console.log('开始上传文件:', selectedFile.value.name)
+    
+    // 使用真实的上传API
+    const uploadResult = await uploadImage(selectedFile.value)
+    console.log('文件上传成功:', uploadResult)
+    
+    // 设置上传后的图片URL
+    form.value.imageUrl = uploadResult.url || uploadResult.path
+    
+    // 更新预览
+    updatePreviewImage()
+    
+    showMessage('success', `图片上传成功: ${uploadResult.filename || selectedFile.value.name}`)
+    
+    // 清除选择的文件
+    clearSelectedFile()
+    
+  } catch (error) {
+    console.error('上传失败:', error)
+    showMessage('error', '图片上传失败: ' + (error.message || '未知错误'))
+  } finally {
+    uploading.value = false
+  }
+}
+
+
+
+// URL输入处理
+const handleUrlInput = async () => {
+  const url = form.value.imageUrl?.trim()
+  console.log('URL输入处理:', url)
+  
+  if (!url) {
+    previewImageUrl.value = ''
+    return
+  }
+  
+  // 基本URL格式验证
+  try {
+    new URL(url)
+  } catch (error) {
+    console.warn('URL格式无效:', url)
+    showMessage('warning', 'URL格式无效，请检查输入')
+    previewImageUrl.value = ''
+    return
+  }
+  
+  // 检查是否是图片URL（基于扩展名或已知图片服务）
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']
+  const isImageUrl = imageExtensions.some(ext => url.toLowerCase().includes(ext)) ||
+                     url.includes('picsum.photos') ||
+                     url.includes('placeholder.com') ||
+                     url.includes('unsplash.com') ||
+                     url.includes('images.') ||
+                     url.includes('/image/') ||
+                     url.includes('data:image/')
+  
+  if (!isImageUrl) {
+    console.warn('可能不是图片URL:', url)
+    showMessage('warning', '输入的URL可能不是图片链接，请确认')
+  }
+  
+  // 立即更新预览
+  updatePreviewImage()
+  
+  // 异步验证URL可访问性（不阻塞用户操作）
+  try {
+    const isValid = await validateImage(url)
+    if (!isValid) {
+      console.warn('图片URL验证失败:', url)
+    }
+  } catch (error) {
+    console.warn('图片URL验证出错:', error)
+  }
+}
+
+// 路径选择处理
+const handlePathSelect = () => {
+  const path = form.value.imagePath?.trim()
+  console.log('路径选择处理:', path)
+  
+  if (!path) {
+    previewImageUrl.value = ''
+    return
+  }
+  
+  // 验证路径格式
+  if (!path.startsWith('/')) {
+    console.warn('路径格式可能不正确:', path)
+    showMessage('warning', '路径应以 / 开头，如：/uploads/patterns/image.jpg')
+  }
+  
+  updatePreviewImage()
+}
+
+// 获取正确的图片URL
+const getImageUrl = (imageUrl) => {
+  if (!imageUrl) return ''
+  
+  console.log('处理图片URL:', imageUrl)
+  
+  // 如果是完整URL，直接返回
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    console.log('返回完整URL:', imageUrl)
+    return imageUrl
+  }
+  
+  // 如果是相对路径，通过代理访问
+  if (imageUrl.startsWith('/')) {
+    const proxyUrl = `/api${imageUrl}`
+    console.log('返回代理URL:', proxyUrl)
+    return proxyUrl
+  }
+  
+  // 其他情况，添加api前缀
+  const apiUrl = `/api/${imageUrl}`
+  console.log('返回API URL:', apiUrl)
+  return apiUrl
+}
+
+// 图片加载错误处理
+const handleImageLoadError = (error) => {
+  // 静默处理图片加载错误，避免控制台噪音
+  // console.warn('图片加载失败:', error)
 }
 
 // 获取印刷图案列表
@@ -1065,6 +1423,129 @@ onUnmounted(() => {
   line-height: 1.4;
 }
 
+/* 文件上传区域样式 */
+.file-upload-area {
+  border: 2px dashed #d9d9d9;
+  border-radius: 6px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: #fafafa;
+}
+
+.file-upload-area:hover {
+  border-color: #409eff;
+  background: #f0f9ff;
+}
+
+.file-upload-area.drag-over {
+  border-color: #409eff;
+  background: #e6f7ff;
+}
+
+.file-upload-area.uploading {
+  border-color: #faad14;
+  background: #fffbe6;
+  cursor: not-allowed;
+}
+
+.upload-progress {
+  padding: 20px;
+  text-align: center;
+}
+
+.upload-progress .upload-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.upload-placeholder {
+  padding: 20px;
+}
+
+.upload-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.upload-text {
+  font-size: 16px;
+  color: #606266;
+  margin-bottom: 8px;
+}
+
+.upload-hint {
+  font-size: 12px;
+  color: #909399;
+}
+
+/* 文件信息样式 */
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-align: left;
+}
+
+.file-preview {
+  flex-shrink: 0;
+}
+
+.preview-thumbnail {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.file-icon {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  border-radius: 4px;
+  font-size: 24px;
+}
+
+.file-details {
+  flex: 1;
+}
+
+.file-name {
+  font-weight: 500;
+  color: #303133;
+  margin-bottom: 4px;
+  word-break: break-all;
+}
+
+.file-size {
+  font-size: 12px;
+  color: #909399;
+  margin-bottom: 4px;
+}
+
+.file-type {
+  font-size: 12px;
+  color: #606266;
+  margin-bottom: 8px;
+  font-family: monospace;
+}
+
+.file-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .upload-trigger {
   display: flex;
   flex-direction: column;
@@ -1155,6 +1636,59 @@ onUnmounted(() => {
   flex: 1;
 }
 
+/* 原图片显示区域 */
+.original-image-section {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  background: #f9f9f9;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #606266;
+  margin-bottom: 8px;
+}
+
+.original-image-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.original-preview-img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  flex-shrink: 0;
+}
+
+.original-image-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.image-url-text {
+  font-size: 12px;
+  color: #909399;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+/* 图片更换提示 */
+.image-change-notice {
+  margin-top: 8px;
+  text-align: center;
+}
+
+.image-change-notice .el-tag {
+  font-size: 12px;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .filter-row {
@@ -1172,6 +1706,17 @@ onUnmounted(() => {
   .url-input-group {
     flex-direction: column;
     align-items: stretch;
+  }
+  
+  .original-image-preview {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .original-preview-img {
+    width: 100%;
+    max-width: 200px;
+    height: auto;
   }
 }
 </style>
