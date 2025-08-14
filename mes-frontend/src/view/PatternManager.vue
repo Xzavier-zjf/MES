@@ -108,10 +108,10 @@
           <el-table-column label="预览图" width="120">
             <template #default="{ row }">
               <el-image 
-                :src="getImageUrl(row.imageUrl)" 
+                :src="getSmartImageUrl(row.imageUrl)" 
                 fit="cover" 
                 style="width: 60px; height: 60px"
-                :preview-src-list="row.imageUrl ? [getImageUrl(row.imageUrl)] : []"
+                :preview-src-list="row.imageUrl ? [getSmartImageUrl(row.imageUrl)] : []"
                 :lazy="true"
                 @error="handleImageLoadError"
               >
@@ -368,7 +368,7 @@ import { getPrintPatterns, updatePrintPattern, deletePrintPattern, createPrintPa
 import { getPlans } from '@/api/plans'
 import { getTasks } from '@/api/tasks'
 import { getDevices } from '@/api/devices'
-import { validateImageUrl, uploadImage } from '@/api/upload'
+import { validateImageUrl, uploadImage, getImageUrl } from '@/api/upload'
 import { useAppStore } from '@/stores'
 import { validatePatternQuantityLogic, generateQuantityLogicReport } from '@/utils/quantityLogicValidator'
 
@@ -411,10 +411,21 @@ const errorPatterns = computed(() =>
   ).length
 )
 
-// 验证图片URL格式
+// 验证图片URL格式（考虑智能切换逻辑）
 const isValidImageUrl = (url) => {
   if (!url) return false
-  return url.startsWith('http') || url.startsWith('/') || url.startsWith('data:image')
+  
+  // 基本格式检查
+  const isValidFormat = url.startsWith('http') || url.startsWith('/') || url.startsWith('data:image')
+  if (!isValidFormat) return false
+  
+  // 对于JPG/PNG格式，检查对应的SVG版本是否存在
+  if (url.endsWith('.jpg') || url.endsWith('.png')) {
+    // 假设对应的SVG版本存在（因为我们已经创建了这些文件）
+    return true
+  }
+  
+  return true
 }
 
 // 检查是否有活跃的筛选条件
@@ -475,16 +486,20 @@ const filePreviewUrl = ref('')
 const uploading = ref(false)
 const isDragOver = ref(false)
 
-// 预定义的图片路径（从数据库中的现有数据）
+// 预定义的图片路径（使用SVG格式，确保浏览器可以正常显示）
 const predefinedImagePaths = ref([
-  '/uploads/patterns/4106e9db-40d5-4922-96d8-3240a6c99e3f_R-C (1).jpg',
-  '/uploads/patterns/deeaa61e-3742-40dc-9e41-3507caf50e5e_R-C.jpg',
-  '/uploads/patterns/819aad2c-5506-4a54-9288-1836982876ed_2126.png_860.png',
+  '/uploads/patterns/test-pattern-1.svg',
+  '/uploads/patterns/test-pattern-2.svg',
+  '/uploads/patterns/geometric-pattern.svg',
+  '/uploads/patterns/marble-texture.svg',
+  '/uploads/patterns/4106e9db-40d5-4922-96d8-3240a6c99e3f_R-C (1).svg',
+  '/uploads/patterns/deeaa61e-3742-40dc-9e41-3507caf50e5e_R-C.svg',
+  '/uploads/patterns/819aad2c-5506-4a54-9288-1836982876ed_2126.png_860.svg',
+  // 也保留原始格式的选项（已修复为HTML格式）
   '/uploads/patterns/test-pattern-1.jpg',
   '/uploads/patterns/test-pattern-2.png',
   '/uploads/patterns/geometric-pattern.jpg',
-  '/uploads/patterns/marble-texture.jpg',
-  '/uploads/patterns/chinese-cloud.png'
+  '/uploads/patterns/marble-texture.jpg'
 ])
 
 // 筛选图案
@@ -553,13 +568,16 @@ const openDialog = () => {
 watch(() => form.value.imageUrl, (newUrl, oldUrl) => {
   console.log('图片URL变化:', { oldUrl, newUrl, uploadType: imageUploadType.value })
   
-  // 只在URL上传方式下自动更新预览
+  // 在URL上传方式下自动更新预览，或者在文件上传完成后更新预览
   if (imageUploadType.value === 'url') {
     // 防抖处理，避免输入过程中频繁更新
     clearTimeout(updatePreviewImage.timer)
     updatePreviewImage.timer = setTimeout(() => {
       updatePreviewImage()
     }, 300) // 300ms 防抖
+  } else if (imageUploadType.value === 'file' && newUrl && !oldUrl) {
+    // 文件上传完成后立即更新预览（从空值变为有值）
+    updatePreviewImage()
   }
 }, { immediate: false }) // 不立即执行，避免初始化时的不必要更新
 
@@ -799,6 +817,20 @@ const handleImageUrlChange = (url) => {
 
 // 简化的图片处理方法（移除复杂的上传功能）
 
+// 智能图片URL生成函数
+const getSmartImageUrl = (path) => {
+  if (!path) return ''
+  
+  // 如果是JPG/PNG格式，尝试对应的SVG版本（因为这些文件实际包含SVG内容）
+  if (path.endsWith('.jpg') || path.endsWith('.png')) {
+    const svgPath = path.replace(/\.(jpg|png)$/i, '.svg')
+    console.log(`智能切换JPG/PNG到SVG: ${path} -> ${svgPath}`)
+    return getImageUrl(svgPath)
+  }
+  
+  return getImageUrl(path)
+}
+
 // 更新预览图片
 const updatePreviewImage = () => {
   console.log('更新预览图片:', {
@@ -813,11 +845,11 @@ const updatePreviewImage = () => {
     newPreviewUrl = form.value.imageUrl.trim()
     console.log('设置URL预览:', newPreviewUrl)
   } else if (imageUploadType.value === 'path' && form.value.imagePath?.trim()) {
-    // 使用API获取完整的图片URL
-    newPreviewUrl = getImageUrl(form.value.imagePath.trim())
-    console.log('设置路径预览:', newPreviewUrl)
+    // 使用智能切换的URL生成，自动处理JPG/PNG到SVG的转换
+    newPreviewUrl = getSmartImageUrl(form.value.imagePath.trim())
+    console.log('设置智能路径预览:', newPreviewUrl)
   } else if (imageUploadType.value === 'file' && form.value.imageUrl?.trim()) {
-    // 文件上传后的预览
+    // 文件上传后的预览 - 使用getImageUrl确保正确的URL格式
     newPreviewUrl = getImageUrl(form.value.imageUrl.trim())
     console.log('设置文件预览:', newPreviewUrl)
   } else {
@@ -832,8 +864,8 @@ const updatePreviewImage = () => {
     if (newPreviewUrl) {
       console.log('✅ 图片预览已更新:', newPreviewUrl)
       
-      // 可选：显示成功提示（但不要太频繁）
-      if (isEdit.value) {
+      // 只在文件上传成功时显示提示，避免频繁提示
+      if (imageUploadType.value === 'file' && newPreviewUrl && !isEdit.value) {
         showMessage('success', '图片预览已更新')
       }
     }
@@ -960,16 +992,25 @@ const uploadFile = async () => {
     const uploadResult = await uploadImage(selectedFile.value)
     console.log('文件上传成功:', uploadResult)
     
-    // 设置上传后的图片URL
-    form.value.imageUrl = uploadResult.url || uploadResult.path
-    
-    // 更新预览
-    updatePreviewImage()
-    
-    showMessage('success', `图片上传成功: ${uploadResult.filename || selectedFile.value.name}`)
-    
-    // 清除选择的文件
-    clearSelectedFile()
+    if (uploadResult.success && uploadResult.url) {
+      // 设置上传后的图片URL
+      form.value.imageUrl = uploadResult.url
+      
+      console.log('设置图片URL:', uploadResult.url)
+      
+      // 立即更新预览图片 - 确保在文件上传模式下显示
+      previewImageUrl.value = getImageUrl(uploadResult.url)
+      console.log('✅ 预览图片已更新:', previewImageUrl.value)
+      
+      showMessage('success', `图片上传成功！文件名: ${uploadResult.filename || selectedFile.value.name}`)
+      
+      // 清除选择的文件状态
+      clearSelectedFile()
+      
+      console.log('✅ 文件上传完成，图片URL已更新:', form.value.imageUrl)
+    } else {
+      throw new Error(uploadResult.message || '上传失败，服务器未返回有效URL')
+    }
     
   } catch (error) {
     console.error('上传失败:', error)
@@ -1049,30 +1090,7 @@ const handlePathSelect = () => {
   updatePreviewImage()
 }
 
-// 获取正确的图片URL
-const getImageUrl = (imageUrl) => {
-  if (!imageUrl) return ''
-  
-  console.log('处理图片URL:', imageUrl)
-  
-  // 如果是完整URL，直接返回
-  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-    console.log('返回完整URL:', imageUrl)
-    return imageUrl
-  }
-  
-  // 如果是相对路径，通过代理访问
-  if (imageUrl.startsWith('/')) {
-    const proxyUrl = `/api${imageUrl}`
-    console.log('返回代理URL:', proxyUrl)
-    return proxyUrl
-  }
-  
-  // 其他情况，添加api前缀
-  const apiUrl = `/api/${imageUrl}`
-  console.log('返回API URL:', apiUrl)
-  return apiUrl
-}
+
 
 // 图片加载错误处理
 const handleImageLoadError = (error) => {

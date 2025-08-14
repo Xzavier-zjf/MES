@@ -46,7 +46,7 @@ spring:
             - Path=/api/equipment/**
 
         - id: process-direct
-          uri: http://localhost:8083
+          uri: http://localhost:8103
           predicates:
             - Path=/api/process/**
 
@@ -55,15 +55,21 @@ spring:
           predicates:
             - Path=/api/production/**
 
+        # 文件上传路由
+        - id: upload
+          uri: http://localhost:8103
+          predicates:
+            - Path=/api/upload/**
+
         # 图案管理路由
         - id: patterns
-          uri: http://localhost:8083
+          uri: http://localhost:8103
           predicates:
             - Path=/api/patterns/**
 
         # 静态资源路由
         - id: uploads
-          uri: http://localhost:8083
+          uri: http://localhost:8103
           predicates:
             - Path=/api/uploads/**
 

@@ -13,6 +13,9 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 静态资源控制器
@@ -58,20 +61,10 @@ public class StaticResourceController {
             
             // 确定内容类型
             String contentType = Files.probeContentType(filePath);
-            if (contentType == null) {
-                // 根据文件扩展名确定内容类型
-                String fileName = filename.toLowerCase();
-                if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
-                    contentType = "image/jpeg";
-                } else if (fileName.endsWith(".png")) {
-                    contentType = "image/png";
-                } else if (fileName.endsWith(".gif")) {
-                    contentType = "image/gif";
-                } else if (fileName.endsWith(".webp")) {
-                    contentType = "image/webp";
-                } else {
-                    contentType = "application/octet-stream";
-                }
+            
+            // 检查文件实际内容来确定正确的Content-Type
+            if (contentType == null || shouldCheckFileContent(filename)) {
+                contentType = detectContentTypeByContent(file, filename);
             }
             
             log.info("返回图片文件: {}, 类型: {}, 大小: {} bytes", 
@@ -165,6 +158,112 @@ public class StaticResourceController {
             log.error("检查文件失败: {}/{}", category, filename, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new FileCheckResponse(false, "", 0));
+        }
+    }
+
+    /**
+     * 调试端点：显示当前工作目录和文件查找信息
+     */
+    @GetMapping("/debug/info")
+    public ResponseEntity<?> getDebugInfo() {
+        try {
+            String currentDir = System.getProperty("user.dir");
+            Path uploadsPath = Paths.get(currentDir, UPLOAD_BASE_DIR);
+            Path patternsPath = Paths.get(currentDir, UPLOAD_BASE_DIR, "patterns");
+            
+            Map<String, Object> debugInfo = new HashMap<>();
+            debugInfo.put("currentWorkingDirectory", currentDir);
+            debugInfo.put("uploadsPath", uploadsPath.toAbsolutePath().toString());
+            debugInfo.put("patternsPath", patternsPath.toAbsolutePath().toString());
+            debugInfo.put("uploadsExists", Files.exists(uploadsPath));
+            debugInfo.put("patternsExists", Files.exists(patternsPath));
+            
+            if (Files.exists(patternsPath)) {
+                try {
+                    List<String> files = Files.list(patternsPath)
+                            .map(path -> path.getFileName().toString())
+                            .collect(java.util.stream.Collectors.toList());
+                    debugInfo.put("patternFiles", files);
+                } catch (Exception e) {
+                    debugInfo.put("patternFiles", "Error listing files: " + e.getMessage());
+                }
+            }
+            
+            return ResponseEntity.ok(debugInfo);
+            
+        } catch (Exception e) {
+            log.error("获取调试信息失败", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 检查是否需要通过文件内容来确定Content-Type
+     */
+    private boolean shouldCheckFileContent(String filename) {
+        // 对于可能包含SVG内容但使用其他扩展名的文件，需要检查内容
+        String lowerName = filename.toLowerCase();
+        return lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") || 
+               lowerName.endsWith(".png") || lowerName.endsWith(".gif");
+    }
+    
+    /**
+     * 通过文件内容检测Content-Type
+     */
+    private String detectContentTypeByContent(File file, String filename) {
+        try {
+            // 读取文件开头的几个字节来判断文件类型
+            byte[] header = new byte[512];
+            try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+                int bytesRead = fis.read(header);
+                String headerStr = new String(header, 0, Math.min(bytesRead, 100), "UTF-8");
+                
+                // 检查是否是SVG内容
+                if (headerStr.contains("<svg") || headerStr.contains("<?xml")) {
+                    log.info("检测到SVG内容，文件: {}", filename);
+                    return "image/svg+xml";
+                }
+                
+                // 检查是否是HTML内容
+                if (headerStr.contains("<!DOCTYPE html") || headerStr.contains("<html")) {
+                    log.info("检测到HTML内容，文件: {}", filename);
+                    return "text/html";
+                }
+                
+                // 检查JPEG文件头
+                if (header[0] == (byte)0xFF && header[1] == (byte)0xD8) {
+                    return "image/jpeg";
+                }
+                
+                // 检查PNG文件头
+                if (header[0] == (byte)0x89 && header[1] == 'P' && header[2] == 'N' && header[3] == 'G') {
+                    return "image/png";
+                }
+                
+                // 检查GIF文件头
+                if ((header[0] == 'G' && header[1] == 'I' && header[2] == 'F') ||
+                    (header[0] == (byte)0x47 && header[1] == (byte)0x49 && header[2] == (byte)0x46)) {
+                    return "image/gif";
+                }
+                
+            }
+        } catch (Exception e) {
+            log.warn("检测文件内容类型失败: {}", filename, e);
+        }
+        
+        // 如果无法检测，根据扩展名返回默认类型
+        String fileName = filename.toLowerCase();
+        if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
+            return "image/jpeg";
+        } else if (fileName.endsWith(".png")) {
+            return "image/png";
+        } else if (fileName.endsWith(".gif")) {
+            return "image/gif";
+        } else if (fileName.endsWith(".svg")) {
+            return "image/svg+xml";
+        } else {
+            return "application/octet-stream";
         }
     }
 

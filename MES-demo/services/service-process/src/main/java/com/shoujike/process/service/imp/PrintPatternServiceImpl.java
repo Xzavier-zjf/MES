@@ -101,11 +101,26 @@ public class PrintPatternServiceImpl implements PrintPatternService {
         if (imageUrl == null || imageUrl.isEmpty()) {
             return; // 跳过空值的URL处理
         }
-        try {
-            Path oldImagePath = Paths.get(fileStorageConfig.getDir() + imageUrl.replace("/uploads/patterns/", ""));
-            Files.deleteIfExists(oldImagePath);
-        } catch (IOException e) {
-            throw new BusinessException("旧图片删除失败: " + e.getMessage());
+        
+        // 只删除本地文件，跳过HTTP/HTTPS URL
+        if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+            // 外部URL不需要删除，直接返回
+            return;
+        }
+        
+        // 只处理本地文件路径
+        if (imageUrl.startsWith("/uploads/patterns/")) {
+            try {
+                String fileName = imageUrl.replace("/uploads/patterns/", "");
+                Path oldImagePath = Paths.get(fileStorageConfig.getDir(), fileName);
+                Files.deleteIfExists(oldImagePath);
+            } catch (IOException e) {
+                // 删除失败不应该阻止更新操作，只记录警告
+                System.err.println("警告：旧图片删除失败: " + e.getMessage());
+            } catch (Exception e) {
+                // 捕获所有其他异常，避免因为文件删除问题影响主要业务
+                System.err.println("警告：旧图片删除时发生异常: " + e.getMessage());
+            }
         }
     }
 

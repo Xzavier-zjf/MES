@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { margin: 0; padding: 0; }
+        .image-container {
+            width: 200px;
+            height: 200px;
+            background: #e74c3c;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            font-family: Arial, sans-serif;
+            color: white;
+        }
+        .title { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+        .subtitle { font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="image-container">
+        <div class="title">问题图案3</div>
+        <div class="subtitle">819aad2c-5506-4a54-9288-1836982876ed_2126.png_860.png</div>
+    </div>
+</body>
+</html>
