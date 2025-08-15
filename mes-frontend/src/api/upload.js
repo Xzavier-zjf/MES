@@ -116,13 +116,27 @@ export const getImageUrl = (path) => {
     processedPath = `/uploads/patterns/${path}`
   }
   
-  // 构建完整URL，对文件名部分进行URL编码
+  // 构建完整URL，智能处理文件名编码
   const pathParts = processedPath.split('/')
   const encodedParts = pathParts.map((part, index) => {
     // 只对文件名部分进行编码，不对路径分隔符编码
     if (index === pathParts.length - 1 && part) {
-      // 对文件名进行URL编码，但保留常见的安全字符
-      return encodeURIComponent(part)
+      // 检查文件名是否已经被URL编码
+      try {
+        const decoded = decodeURIComponent(part)
+        // 如果解码成功且与原始不同，说明已经编码过了
+        if (decoded !== part) {
+          console.log('文件名已编码，直接使用:', part)
+          return part
+        }
+      } catch (e) {
+        // 解码失败，说明不是有效的URL编码
+      }
+      
+      // 对文件名进行URL编码
+      const encoded = encodeURIComponent(part)
+      console.log('文件名编码:', part, '->', encoded)
+      return encoded
     }
     return part
   })

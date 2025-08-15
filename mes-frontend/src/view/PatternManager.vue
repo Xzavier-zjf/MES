@@ -795,14 +795,25 @@ const savePattern = async () => {
       // 新增逻辑
       console.log('执行新增操作')
       const response = await createPrintPattern(requestData);
+      
+      // 确保新增的数据包含正确的图片URL
+      if (response && imageField) {
+        response.imageUrl = imageField;
+      }
+      
       patterns.value.unshift(response);
       total.value++;
       
       showMessage('success', '图案创建成功')
-      console.log('新增成功')
+      console.log('新增成功，图片URL:', imageField)
     }
     
     dialogVisible.value = false;
+    
+    // 清理上传状态
+    clearSelectedFile();
+    previewImageUrl.value = '';
+    
   } catch (error) {
     console.error('保存失败:', error);
     showMessage('error', '保存失败: ' + (error.message || '未知错误'));
@@ -821,14 +832,37 @@ const handleImageUrlChange = (url) => {
 const getSmartImageUrl = (path) => {
   if (!path) return ''
   
-  // 如果是JPG/PNG格式，尝试对应的SVG版本（因为这些文件实际包含SVG内容）
-  if (path.endsWith('.jpg') || path.endsWith('.png')) {
+  console.log('智能图片URL处理:', path)
+  
+  // 首先尝试原始路径
+  const originalUrl = getImageUrl(path)
+  console.log('原始URL:', originalUrl)
+  
+  // 对于包含中文字符的文件名，直接使用原始格式
+  // 不进行智能切换，避免文件不存在的问题
+  if (path.includes('%') || /[\u4e00-\u9fa5]/.test(path)) {
+    console.log('检测到中文字符或已编码字符，使用原始格式:', path)
+    return originalUrl
+  }
+  
+  // 只对预定义的测试文件进行智能切换
+  const predefinedFiles = [
+    'test-pattern-1.jpg',
+    'test-pattern-2.png', 
+    'geometric-pattern.jpg',
+    'marble-texture.jpg'
+  ]
+  
+  const fileName = path.split('/').pop()
+  if (predefinedFiles.includes(fileName) && (path.endsWith('.jpg') || path.endsWith('.png'))) {
     const svgPath = path.replace(/\.(jpg|png)$/i, '.svg')
-    console.log(`智能切换JPG/PNG到SVG: ${path} -> ${svgPath}`)
+    console.log(`智能切换预定义文件: ${path} -> ${svgPath}`)
     return getImageUrl(svgPath)
   }
   
-  return getImageUrl(path)
+  // 其他情况直接返回原始URL
+  console.log('使用原始格式:', path)
+  return originalUrl
 }
 
 // 更新预览图片
@@ -836,7 +870,8 @@ const updatePreviewImage = () => {
   console.log('更新预览图片:', {
     uploadType: imageUploadType.value,
     imageUrl: form.value.imageUrl,
-    imagePath: form.value.imagePath
+    imagePath: form.value.imagePath,
+    isEdit: isEdit.value
   })
   
   let newPreviewUrl = ''
@@ -853,10 +888,10 @@ const updatePreviewImage = () => {
     newPreviewUrl = getImageUrl(form.value.imageUrl.trim())
     console.log('设置文件预览:', newPreviewUrl)
   } else {
-    console.log('清除预览')
+    console.log('清除预览 - 没有有效的图片数据')
   }
   
-  // 防抖更新预览URL，避免频繁更新
+  // 更新预览URL
   if (previewImageUrl.value !== newPreviewUrl) {
     previewImageUrl.value = newPreviewUrl
     
@@ -864,11 +899,22 @@ const updatePreviewImage = () => {
     if (newPreviewUrl) {
       console.log('✅ 图片预览已更新:', newPreviewUrl)
       
-      // 只在文件上传成功时显示提示，避免频繁提示
-      if (imageUploadType.value === 'file' && newPreviewUrl && !isEdit.value) {
-        showMessage('success', '图片预览已更新')
-      }
+      // 验证预览URL是否可访问（异步，不阻塞）
+      setTimeout(() => {
+        const img = new Image()
+        img.onload = () => {
+          console.log('✅ 预览图片加载成功:', newPreviewUrl)
+        }
+        img.onerror = () => {
+          console.warn('⚠️ 预览图片加载失败:', newPreviewUrl)
+        }
+        img.src = newPreviewUrl
+      }, 100)
+    } else {
+      console.log('预览已清除')
     }
+  } else {
+    console.log('预览URL未变化，跳过更新')
   }
 }
 
@@ -999,15 +1045,24 @@ const uploadFile = async () => {
       console.log('设置图片URL:', uploadResult.url)
       
       // 立即更新预览图片 - 确保在文件上传模式下显示
-      previewImageUrl.value = getImageUrl(uploadResult.url)
+      const fullImageUrl = getImageUrl(uploadResult.url)
+      previewImageUrl.value = fullImageUrl
       console.log('✅ 预览图片已更新:', previewImageUrl.value)
+      
+      // 确保预览图片在DOM中正确显示
+      setTimeout(() => {
+        if (previewImageUrl.value) {
+          console.log('✅ 文件上传预览确认显示:', previewImageUrl.value)
+        }
+      }, 100)
       
       showMessage('success', `图片上传成功！文件名: ${uploadResult.filename || selectedFile.value.name}`)
       
-      // 清除选择的文件状态
+      // 清除选择的文件状态，但保留预览
       clearSelectedFile()
       
       console.log('✅ 文件上传完成，图片URL已更新:', form.value.imageUrl)
+      console.log('✅ 预览状态:', { previewImageUrl: previewImageUrl.value, uploadType: imageUploadType.value })
     } else {
       throw new Error(uploadResult.message || '上传失败，服务器未返回有效URL')
     }
