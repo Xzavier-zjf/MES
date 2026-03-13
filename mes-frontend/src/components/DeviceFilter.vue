@@ -2,8 +2,8 @@
  <el-form :inline="true" :model="filters" class="filter-form">
     <el-form-item label="设备类型">
       <el-select v-model="filters.name" placeholder="请选择类型" clearable style="width: 150px;">
-        <el-option label="注塑机" value="注塑机" />
-        <el-option label="压机" value="压机" />
+        <el-option label="注塑" value="注塑" />
+        <el-option label="印刷" value="印刷" />
       </el-select>
     </el-form-item>
     <el-form-item label="状态">

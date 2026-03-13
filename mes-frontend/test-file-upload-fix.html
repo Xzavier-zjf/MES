@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件上传功能修复验证</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-title {
+            color: #409eff;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .fix-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f0f9ff;
+            border-left: 4px solid #409eff;
+        }
+        .fix-item.success {
+            background: #f0f9ff;
+            border-left-color: #67c23a;
+        }
+        .fix-item.warning {
+            background: #fdf6ec;
+            border-left-color: #e6a23c;
+        }
+        .code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .steps {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        .steps ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .steps li {
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 文件上传功能修复验证</h1>
+    
+    <div class="test-section">
+        <div class="test-title">📋 修复内容总结</div>
+        
+        <div class="fix-item success">
+            <strong>✅ 修复了保存图案方法</strong><br>
+            - 确保新增图案时正确设置图片URL<br>
+            - 在保存完成后清理上传状态<br>
+            - 改进了编辑模式下的图片URL处理
+        </div>
+        
+        <div class="fix-item success">
+            <strong>✅ 优化了文件上传完成逻辑</strong><br>
+            - 上传成功后立即更新预览图片<br>
+            - 添加了预览图片加载验证<br>
+            - 改进了上传状态的清理机制
+        </div>
+        
+        <div class="fix-item success">
+            <strong>✅ 增强了预览图片更新函数</strong><br>
+            - 添加了详细的调试日志<br>
+            - 异步验证预览图片是否可加载<br>
+            - 改进了不同上传方式的处理逻辑
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">🧪 测试步骤</div>
+        
+        <div class="steps">
+            <h4>新增图案测试：</h4>
+            <ol>
+                <li>点击"新增图案"按钮</li>
+                <li>填写图案编号和图案名称</li>
+                <li>选择"文件上传"方式</li>
+                <li>选择一个图片文件</li>
+                <li>点击"上传到服务器"按钮</li>
+                <li><strong>验证：</strong>应该看到图片预览</li>
+                <li>点击"保存"按钮</li>
+                <li><strong>验证：</strong>保存后表格中应显示预览图，不是"暂无图片"</li>
+            </ol>
+        </div>
+        
+        <div class="steps">
+            <h4>编辑图案测试：</h4>
+            <ol>
+                <li>点击现有图案的"编辑"按钮</li>
+                <li>选择"文件上传"方式</li>
+                <li>选择一个新的图片文件</li>
+                <li>点击"上传到服务器"按钮</li>
+                <li><strong>验证：</strong>应该看到新图片预览</li>
+                <li>点击"保存"按钮</li>
+                <li><strong>验证：</strong>保存后表格中应显示新的预览图</li>
+            </ol>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">🔍 关键修复点</div>
+        
+        <div class="fix-item">
+            <strong>问题根因：</strong><br>
+            文件上传成功后，预览图片虽然显示了，但保存时图片URL没有正确传递到后端，导致保存后显示"暂无图片"。
+        </div>
+        
+        <div class="fix-item success">
+            <strong>修复方案：</strong><br>
+            1. 在 <span class="code">uploadFile</span> 函数中，上传成功后立即设置预览图片<br>
+            2. 在 <span class="code">savePattern</span> 函数中，确保新增时正确设置图片URL<br>
+            3. 在 <span class="code">updatePreviewImage</span> 函数中，添加图片加载验证
+        </div>
+        
+        <div class="fix-item warning">
+            <strong>注意事项：</strong><br>
+            - 确保其他上传方式（URL和文件路径）功能不受影响<br>
+            - 文件上传完成后会自动清理选择状态，但保留预览<br>
+            - 编辑模式下会显示原图片和新图片预览的对比
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">📊 预期结果</div>
+        
+        <div class="fix-item success">
+            <strong>✅ 文件上传方式：</strong><br>
+            - 选择文件后可以看到文件信息<br>
+            - 上传成功后立即显示预览图片<br>
+            - 保存后表格中正确显示预览图，不再是"暂无图片"
+        </div>
+        
+        <div class="fix-item success">
+            <strong>✅ 其他上传方式保持正常：</strong><br>
+            - 图片URL方式：输入URL后显示预览，保存正常<br>
+            - 文件路径方式：选择路径后显示预览，保存正常
+        </div>
+        
+        <div class="fix-item success">
+            <strong>✅ 编辑功能正常：</strong><br>
+            - 编辑时显示当前图片<br>
+            - 更换图片后显示新预览<br>
+            - 保存后正确更新表格预览
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">🚀 启动测试</div>
+        <p>请按照以下步骤启动系统进行测试：</p>
+        <div class="steps">
+            <ol>
+                <li>启动后端服务（确保端口8080可用）</li>
+                <li>启动前端开发服务器</li>
+                <li>访问图案管理页面</li>
+                <li>按照上述测试步骤进行验证</li>
+            </ol>
+        </div>
+    </div>
+    
+    <script>
+        console.log('文件上传功能修复验证页面已加载');
+        console.log('主要修复内容：');
+        console.log('1. savePattern函数 - 确保新增时正确设置图片URL');
+        console.log('2. uploadFile函数 - 上传成功后立即更新预览');
+        console.log('3. updatePreviewImage函数 - 添加图片加载验证');
+        console.log('请按照页面说明进行测试验证');
+    </script>
+</body>
+</html>

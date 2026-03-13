@@ -9,10 +9,10 @@
     :card2="props.card2"
     :card3="props.card3"
     :card4="props.card4"
-    :value1="totalDevices"
-    :value2="inProgress"
-    :value3="completed"
-    :value4="pending"/>
+    :value1="appStore.totalDevices"
+    :value2="appStore.runningDevices"
+    :value3="appStore.idlingDevices"
+    :value4="appStore.pendingDevices"/>
 
 
     <!-- 筛选组件 -->
@@ -41,7 +41,7 @@
     <DeviceDetailDialog
       v-model:visible="detailVisible"
       :device="selectedDevice"
-      @updateStatus="updateDeviceStatus"
+      @updateStatus="handleUpdateDeviceStatus"
       @filterDevices="filterDevices"  
     />
 
@@ -73,18 +73,40 @@
             <el-option label="空闲" value="空闲" />
           </el-select>
         </el-form-item>
-        <el-form-item label="使用时长（小时）">
+        <el-form-item label="使用时长">
           <el-input-number v-model="newDevice.runtimeMinutes" :min="0" />
         </el-form-item>
-        <el-form-item label="注塑压力 (MPa)">
-          <el-input-number v-model="newDevice.injectionPressure" :min="0" />
-        </el-form-item>
-        <el-form-item label="开启次数">
+
+
+        <!-- 注塑机特有参数 -->
+        <template v-if="newDevice.type === '注塑'">
+          <el-form-item label="注塑压力 (MPa)">
+            <el-input-number v-model="newDevice.injectionPressure" :min="0" />
+          </el-form-item>
+          <el-form-item label="注塑时间 (秒)">
+            <el-input-number v-model="newDevice.injectionTime" :min="0" />
+          </el-form-item>
+          <el-form-item label="开启次数">
           <el-input-number v-model="newDevice.openCloseTimes" :min="0" />
         </el-form-item>
-        <el-form-item label="注塑时间 (秒)">
-          <el-input-number v-model="newDevice.injectionTime" :min="0" />
-        </el-form-item>
+        </template>
+        
+        <!-- 印刷机特有参数 -->
+        <template v-else-if="newDevice.type === '印刷'">
+          <el-form-item label="印刷压力 (MPa)">
+            <el-input-number v-model="newDevice.printPressure" :min="0" />
+          </el-form-item>
+          <el-form-item label="印刷速度 (mm/s)">
+            <el-input-number v-model="newDevice.printSpeed" :min="0" />
+          </el-form-item>
+          <el-form-item label="油墨使用量 (L)">
+            <el-input-number v-model="newDevice.inkUsage" :min="0" :step="0.1" />
+          </el-form-item>
+        </template>
+
+
+
+
       </el-form>
 
       <template #footer>
@@ -97,12 +119,15 @@
 
 <script setup>
 import HeaderSection from '@/components/HeaderSection.vue'
-import { ref, computed, onMounted } from 'vue' // 添加onMounted导入
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import DeviceFilter from '@/components/DeviceFilter.vue'
 import DeviceCard from '@/components/DeviceCard.vue'
 import DeviceDetailDialog from '@/components/DeviceDetailDialog.vue'
 import { ElMessage } from 'element-plus'
+import { useAppStore } from '@/stores'
+import { getDevices, getDeviceById, createDevice, updateDeviceStatus } from '@/api/devices'
+const appStore = useAppStore()
 
 const router = useRouter()
 const go = (path) => {
@@ -110,9 +135,7 @@ const go = (path) => {
 }
 
 const devices = ref([
-  { id: 'D001', type: '注塑机', status: '运行中', usageHours: 200, pressure: 120, openTimes: 5000, injectionTime: 6.5 },
-  { id: 'D002', type: '压机', status: '故障', usageHours: 80, pressure: 95, openTimes: 1200, injectionTime: 5.2 },
-  { id: 'D003', type: '注塑机', status: '空闲', usageHours: 0, pressure: 0, openTimes: 0, injectionTime: 0 },
+
 ])
 
 const props = defineProps({
@@ -133,11 +156,6 @@ const props = defineProps({
     default: '故障'
   }
 })
-// 计算统计数据
-const totalDevices = computed(() => devices.value.length)
-const inProgress = computed(() => devices.value.filter(t => t.status === '运行中').length)
-const completed = computed(() => devices.value.filter(t => t.status === '空闲').length)
-const pending = computed(() => devices.value.filter(t => t.status === '故障').length)
 
 const filters = ref({ name: '', status: '' })  
 
@@ -145,14 +163,14 @@ const filteredDevices = ref([])
 
 const fetchFilteredDevices = async () => {
   try {
-    let url = 'http://localhost:8080/api/v1/equipment/devices?'
-    if (filters.value.name) url += `name=${encodeURIComponent(filters.value.name)}&`
-    if (filters.value.status) url += `status=${filters.value.status}`
+    const params = {
+      name: filters.value.name,
+      status: filters.value.status,
+      page: 0,
+      size: 1000
+    }
     
-    const response = await fetch(url)
-    if (!response.ok) throw new Error('获取设备列表失败')
-    
-    const data = await response.json()
+    const data = await getDevices(params)
     filteredDevices.value = data.content || data
   } catch (error) {
     console.error('过滤设备错误:', error)
@@ -181,11 +199,7 @@ const selectedDevice = ref(null)
 
 const viewDetail = async (device) => {
   try {
-    const response = await fetch(`http://localhost:8080/api/v1/equipment/devices/${device.id}`)
-    if (!response.ok) {
-      throw new Error('获取设备详情失败')
-    }
-    selectedDevice.value = await response.json()
+    selectedDevice.value = await getDeviceById(device.id)
     detailVisible.value = true
   } catch (error) {
     console.error('获取设备详情错误:', error)
@@ -237,19 +251,7 @@ const addDevice = async () => {
   }
   
   try {
-    const response = await fetch('http://localhost:8080/api/v1/equipment/devices', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(newDevice.value)
-    })
-
-    if (!response.ok) {
-      throw new Error('添加设备失败')
-    }
-
-    const data = await response.json()
+    const data = await createDevice(newDevice.value)
     devices.value.push(data)
     ElMessage.success('设备添加成功')
     closeAddDeviceDialog()
@@ -268,15 +270,33 @@ const addDevice = async () => {
     ElMessage.error(error.message || '添加设备失败')
   }
 }
-const updateDeviceStatus = (newStatus) => {
+const handleUpdateDeviceStatus = async (newStatus) => {
   if (selectedDevice.value) {
-    // 找到该设备并更新其状态
-    const index = devices.value.findIndex(d => d.id === selectedDevice.value.id)
-    if (index !== -1) {
-      devices.value[index].status = newStatus
+    try {
+      await updateDeviceStatus(selectedDevice.value.id, newStatus)
+      
+      // 更新本地设备列表中的状态
+      const deviceIndex = devices.value.findIndex(d => d.id === selectedDevice.value.id)
+      if (deviceIndex !== -1) {
+        devices.value[deviceIndex].status = newStatus
+      }
+      
+      // 更新筛选后的设备列表中的状态
+      const filteredIndex = filteredDevices.value.findIndex(d => d.id === selectedDevice.value.id)
+      if (filteredIndex !== -1) {
+        filteredDevices.value[filteredIndex].status = newStatus
+      }
+      
+      // 更新选中的设备状态
       selectedDevice.value.status = newStatus
-      // 强制更新filteredDevices以触发重新渲染
-      filteredDevices.value = [...filteredDevices.value]
+      
+      // 强制更新store中的统计数据
+      await appStore.refreshDeviceStats()
+      
+      ElMessage.success('设备状态已更新')
+    } catch (error) {
+      ElMessage.error('设备状态更新失败')
+      console.error('设备状态更新失败:', error)
     }
   }
 }

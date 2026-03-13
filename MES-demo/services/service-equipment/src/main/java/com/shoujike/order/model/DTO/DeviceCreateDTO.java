@@ -11,6 +11,7 @@ public class DeviceCreateDTO {
     private String deviceCode;
     private String name;
     private String status;
+    private String type;
     private Integer runtimeMinutes;
     private Integer openCloseTimes;
     private LocalDateTime lastMaintenanceTime;
@@ -18,4 +19,6 @@ public class DeviceCreateDTO {
     private LocalDateTime updatedAt;
     private Float injectionTime;
     private Float injectionPressure;
+    private Float printingSpeed;
+    private Float printingPressure;
 }

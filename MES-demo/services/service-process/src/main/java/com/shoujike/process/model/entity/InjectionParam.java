@@ -10,7 +10,7 @@ import lombok.Data;
 @TableName("injection_param")
 public class InjectionParam {
     @TableId(type = IdType.AUTO)
-    private String id;
+    private Integer id;
 
     @TableField("plan_id")
     private String planId;
@@ -19,6 +19,8 @@ public class InjectionParam {
     private String taskId;
     @TableField("device_id")
     private String deviceId;
+
+    private Integer quantity;
 
     private Float pressure;
 
