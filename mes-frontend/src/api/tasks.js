@@ -1,5 +1,7 @@
 // src/api/tasks.js
-const BASE_URL = 'http://localhost:8080/api/v1/production/tasks'
+import request from './request'
+
+const BASE_URL = '/api/v1/production/tasks'
 
 export const getTasks = async (params = {}) => {
   const searchParams = new URLSearchParams()
@@ -9,53 +11,15 @@ export const getTasks = async (params = {}) => {
   searchParams.append('page', params.page || 0)
   searchParams.append('size', params.size || 100)
 
-  const res = await fetch(`${BASE_URL}?${searchParams.toString()}`)
-  if (!res.ok) throw new Error('获取任务列表失败')
-  return await res.json()
+  return await request.get(`${BASE_URL}?${searchParams.toString()}`)
 }
 
 export const createTask = async (taskData) => {
-  const res = await fetch(`${BASE_URL}?planId=${taskData.planId}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(taskData),
-  })
-  if (!res.ok) throw new Error('创建任务失败')
-  
-  // 检查响应体是否为空
-  const text = await res.text()
-  if (!text) {
-    throw new Error('创建任务失败：后端返回空响应')
-  }
-  
-  try {
-    return JSON.parse(text)
-  } catch (error) {
-    console.warn('后端返回非JSON格式响应:', text)
-    throw new Error('创建任务失败：响应格式错误')
-  }
+  return await request.post(`${BASE_URL}?planId=${taskData.planId}`, taskData)
 }
 
 export const updateTask = async (id, taskData) => {
-  const res = await fetch(`${BASE_URL}/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(taskData),
-  })
-  if (!res.ok) throw new Error('更新任务失败')
-  
-  // 检查响应体是否为空
-  const text = await res.text()
-  if (!text) {
-    return { success: true, message: '更新成功' }
-  }
-  
-  try {
-    return JSON.parse(text)
-  } catch (error) {
-    console.warn('后端返回非JSON格式响应:', text)
-    return { success: true, message: '更新成功' }
-  }
+  return await request.put(`${BASE_URL}/${id}`, taskData)
 }
 
 // 更新任务数量
@@ -70,11 +34,7 @@ export const updateTaskQuantity = async (taskId, quantity) => {
 }
 
 export const deleteTask = async (id) => {
-  const res = await fetch(`${BASE_URL}/${id}`, {
-    method: 'DELETE',
-  })
-  if (!res.ok) throw new Error('删除任务失败')
-  return await res.text()
+  return await request.delete(`${BASE_URL}/${id}`)
 }
 
 // 更新任务状态
@@ -105,4 +65,4 @@ export const batchUpdateTaskStatus = async (updates) => {
   } catch (error) {
     throw new Error('批量更新任务状态失败: ' + error.message)
   }
-} 
+}

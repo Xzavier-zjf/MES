@@ -10,9 +10,9 @@ spring:
         enabled: true # ??????
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/MES?useSSL=false&serverTimezone=Asia/Shanghai
-    username: root
-    password: 123456
+    url: ${MES_DB_URL:jdbc:mysql://localhost:3306/MES?useSSL=false&serverTimezone=Asia/Shanghai}
+    username: ${MES_DB_USERNAME:root}
+    password: ${MES_DB_PASSWORD:}
     hikari:
       maximum-pool-size: 15
       minimum-idle: 5
@@ -33,4 +33,4 @@ mybatis-plus:
   type-aliases-package: com.shoujike.product.entity # ??????
 file:
   upload:
-    dir: ./services/service-process/src/main/resources/static/uploads/patterns/
+    dir: ./uploads/patterns/

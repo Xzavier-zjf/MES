@@ -332,7 +332,7 @@
 
 <script setup>
 import HeaderSection from '@/components/HeaderSection.vue'
-import TopNavBar from '@/components/NavBar.vue'
+import TopNavBar from '@/components/Navbar.vue'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessageBox, ElMessage, ElNotification } from 'element-plus'
 
