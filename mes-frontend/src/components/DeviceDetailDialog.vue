@@ -36,7 +36,8 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'  // 添加这行导入
+import { ElMessage } from 'element-plus'
+import { updateDeviceStatus } from '@/api/devices'
 
 const props = defineProps({
   visible: Boolean,
@@ -59,27 +60,15 @@ const handleClose = () => {
 
 const saveStatus = async () => {
   try {
-    const response = await fetch(`http://localhost:8080/api/v1/equipment/devices/${props.device.id}/status`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        status: editableStatus.value
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error('更新状态失败')
-    }
+    await updateDeviceStatus(props.device.id, editableStatus.value)
 
     emit('updateStatus', editableStatus.value)
     emit('update:visible', false)
-    ElMessage.success('状态更新成功')  // 确保这里使用了导入的ElMessage
+    ElMessage.success('状态更新成功')
     emit('filterDevices')
   } catch (error) {
     console.error('更新状态错误:', error)
-    ElMessage.error('状态更新失败')  // 确保这里使用了导入的ElMessage
+    ElMessage.error('状态更新失败')
   }
 }
 </script>

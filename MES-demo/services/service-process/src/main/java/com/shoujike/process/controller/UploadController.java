@@ -1,5 +1,7 @@
 package com.shoujike.process.controller;
 
+import com.shoujike.common.config.FileStorageConfig;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -10,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -20,11 +23,23 @@ import java.util.UUID;
 @Slf4j
 @RestController
 @RequestMapping("/api/upload")
-// CORS配置已在WebConfig中全局配置，移除重复配置
+@RequiredArgsConstructor
 public class UploadController {
-    
-    private static final String UPLOAD_DIR = "uploads/patterns/";
+
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    private static final List<String> ALLOWED_CONTENT_TYPES = List.of(
+            "image/jpeg",
+            "image/png",
+            "image/gif",
+            "image/webp"
+    );
+    private static final byte[] JPEG_MAGIC = {(byte) 0xFF, (byte) 0xD8};
+    private static final byte[] PNG_MAGIC = {(byte) 0x89, 0x50, 0x4E, 0x47};
+    private static final byte[] GIF_MAGIC = {0x47, 0x49, 0x46};
+    private static final byte[] WEBP_RIFF = {0x52, 0x49, 0x46, 0x46};
+    private static final byte[] WEBP_WEBP = {0x57, 0x45, 0x42, 0x50};
+
+    private final FileStorageConfig fileStorageConfig;
     
     /**
      * 上传图片文件
@@ -45,26 +60,23 @@ public class UploadController {
             
             // 验证文件类型
             String contentType = file.getContentType();
-            if (contentType == null || !contentType.startsWith("image/")) {
+            if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
                 return ResponseEntity.badRequest().body(createErrorResponse("只能上传图片文件"));
             }
-            
-            // 创建上传目录
-            Path uploadPath = Paths.get(UPLOAD_DIR);
+
+            if (!isSupportedImage(file)) {
+                return ResponseEntity.badRequest().body(createErrorResponse("图片内容校验失败，仅支持 JPG/PNG/GIF/WEBP"));
+            }
+
+            Path uploadPath = getUploadPath();
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
                 log.info("创建上传目录: {}", uploadPath.toAbsolutePath());
             }
-            
-            // 生成唯一文件名
+
             String originalFilename = file.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            }
             String filename = UUID.randomUUID().toString() + "_" + originalFilename;
-            
-            // 保存文件
+
             Path filePath = uploadPath.resolve(filename);
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
             
@@ -74,8 +86,8 @@ public class UploadController {
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
             result.put("message", "文件上传成功");
-            result.put("url", "/" + UPLOAD_DIR + filename);
-            result.put("path", "/" + UPLOAD_DIR + filename);
+            result.put("url", "/uploads/patterns/" + filename);
+            result.put("path", "/uploads/patterns/" + filename);
             result.put("filename", filename);
             result.put("originalFilename", originalFilename);
             result.put("size", file.getSize());
@@ -100,14 +112,15 @@ public class UploadController {
         try {
             log.info("删除图片文件: {}", imagePath);
             
-            // 安全检查：确保路径在允许的目录内
-            if (!imagePath.startsWith("/" + UPLOAD_DIR)) {
+            if (!imagePath.startsWith("/uploads/patterns/")) {
                 return ResponseEntity.badRequest().body(createErrorResponse("无效的文件路径"));
             }
-            
-            // 移除开头的斜杠
-            String relativePath = imagePath.startsWith("/") ? imagePath.substring(1) : imagePath;
-            Path filePath = Paths.get(relativePath);
+
+            String fileName = imagePath.substring("/uploads/patterns/".length());
+            Path filePath = getUploadPath().resolve(fileName).normalize();
+            if (!filePath.startsWith(getUploadPath())) {
+                return ResponseEntity.badRequest().body(createErrorResponse("无效的文件路径"));
+            }
             
             if (Files.exists(filePath)) {
                 Files.delete(filePath);
@@ -136,13 +149,15 @@ public class UploadController {
     @GetMapping("/image/info")
     public ResponseEntity<?> getImageInfo(@RequestParam("path") String imagePath) {
         try {
-            // 安全检查
-            if (!imagePath.startsWith("/" + UPLOAD_DIR)) {
+            if (!imagePath.startsWith("/uploads/patterns/")) {
                 return ResponseEntity.badRequest().body(createErrorResponse("无效的文件路径"));
             }
-            
-            String relativePath = imagePath.startsWith("/") ? imagePath.substring(1) : imagePath;
-            Path filePath = Paths.get(relativePath);
+
+            String fileName = imagePath.substring("/uploads/patterns/".length());
+            Path filePath = getUploadPath().resolve(fileName).normalize();
+            if (!filePath.startsWith(getUploadPath())) {
+                return ResponseEntity.badRequest().body(createErrorResponse("无效的文件路径"));
+            }
             
             if (Files.exists(filePath)) {
                 Map<String, Object> result = new HashMap<>();
@@ -166,6 +181,46 @@ public class UploadController {
             log.error("获取文件信息失败", e);
             return ResponseEntity.status(500).body(createErrorResponse("获取文件信息失败: " + e.getMessage()));
         }
+    }
+
+    private Path getUploadPath() {
+        return Paths.get(fileStorageConfig.getDir()).normalize().toAbsolutePath();
+    }
+
+    private boolean isSupportedImage(MultipartFile file) throws IOException {
+        byte[] header = file.getInputStream().readNBytes(12);
+        if (header.length < 3) {
+            return false;
+        }
+
+        return startsWith(header, JPEG_MAGIC)
+                || startsWith(header, PNG_MAGIC)
+                || startsWith(header, GIF_MAGIC)
+                || (startsWith(header, WEBP_RIFF) && containsAt(header, WEBP_WEBP, 8));
+    }
+
+    private boolean startsWith(byte[] data, byte[] signature) {
+        if (data.length < signature.length) {
+            return false;
+        }
+        for (int i = 0; i < signature.length; i++) {
+            if (data[i] != signature[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean containsAt(byte[] data, byte[] signature, int offset) {
+        if (data.length < offset + signature.length) {
+            return false;
+        }
+        for (int i = 0; i < signature.length; i++) {
+            if (data[offset + i] != signature[i]) {
+                return false;
+            }
+        }
+        return true;
     }
     
     /**

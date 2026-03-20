@@ -190,12 +190,12 @@ public class PrintPatternServiceImpl implements PrintPatternService {
     }
 
     public String storeImage(MultipartFile file) throws BusinessException {
-        String uploadDir = fileStorageConfig.getDir();
+        Path uploadDir = Paths.get(fileStorageConfig.getDir()).normalize().toAbsolutePath();
         try {
             String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
-            Path filePath = Paths.get(uploadDir + fileName);
+            Path filePath = uploadDir.resolve(fileName);
 
-            Files.createDirectories(filePath.getParent());
+            Files.createDirectories(uploadDir);
             file.transferTo(filePath);
 
             return "/uploads/patterns/" + fileName;  // 返回访问路径
