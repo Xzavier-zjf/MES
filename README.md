@@ -124,5 +124,5 @@ npm run dev
 ## 联系方式
 如有问题，请联系项目负责人：
 - GitHub: [Xzavier-zjf](https://github.com/Xzavier-zjf)
-- 邮箱: mes_admin@shoujike.com
+
 
