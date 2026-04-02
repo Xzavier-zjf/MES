@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Locale;
 
 /**
  * 静态资源控制器
@@ -32,6 +33,8 @@ public class StaticResourceController {
     private static final byte[] GIF_MAGIC = {0x47, 0x49, 0x46};
     private static final byte[] WEBP_RIFF = {0x52, 0x49, 0x46, 0x46};
     private static final byte[] WEBP_WEBP = {0x57, 0x45, 0x42, 0x50};
+    private static final String SVG_EXT = ".svg";
+    private static final String SVG_CONTENT_TYPE = "image/svg+xml";
 
     private final FileStorageConfig fileStorageConfig;
 
@@ -145,6 +148,11 @@ public class StaticResourceController {
     }
 
     private String detectImageContentType(Path filePath) throws IOException {
+        String lowerCaseName = filePath.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (lowerCaseName.endsWith(SVG_EXT) && isValidSvg(filePath)) {
+            return SVG_CONTENT_TYPE;
+        }
+
         byte[] header = Files.readAllBytes(filePath);
         if (startsWith(header, JPEG_MAGIC)) {
             return MediaType.IMAGE_JPEG_VALUE;
@@ -159,6 +167,13 @@ public class StaticResourceController {
             return "image/webp";
         }
         throw new IOException("不支持的图片类型");
+    }
+
+    private boolean isValidSvg(Path filePath) throws IOException {
+        String content = Files.readString(filePath);
+        String normalized = content.trim().toLowerCase(Locale.ROOT);
+        return normalized.startsWith("<svg")
+                || (normalized.startsWith("<?xml") && normalized.contains("<svg"));
     }
 
     private boolean startsWith(byte[] data, byte[] signature) {
